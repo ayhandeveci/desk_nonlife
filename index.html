@@ -1,287 +1,186 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
 <meta charset="UTF-8" />
-<title>Exam Viewer - Soru Cevap</title>
+<title>Viewer</title>
+
+<script src="https://apis.google.com/js/api.js"></script>
 
 <style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f3f3f3;
-}
+body { margin:0; font-family:Arial; }
+#top { padding:10px; background:#fff; border-bottom:1px solid #ccc; }
+.container { display:flex; height:100vh; }
 
-.container {
-    display: flex;
-    height: 100vh;
+/* SOL */
+#left {
+  width:480px; min-width:480px;
+  border-right:2px solid #ccc;
+  padding:10px; box-sizing:border-box;
 }
-
-/* Sol taraf listeler */
-#leftSide {
-    width: 480px;
-    min-width: 480px;
-    border-right: 2px solid #ccc;
-    background: #ffffff;
-    padding: 10px;
-    box-sizing: border-box;
+.list-wrap { display:flex; gap:10px; }
+.list-box { width:50%; }
+.list-title { text-align:center; font-weight:bold; margin-bottom:8px; }
+.list-area {
+  border:1px solid #aaa;
+  border-radius:4px;
+  max-height:80vh;
+  overflow-y:auto;
+  padding:5px;
+  background:#fafafa;
 }
-
-h2 {
-    text-align: center;
-    margin-top: 5px;
-    margin-bottom: 10px;
-}
-
-/* Liste kutuları */
-.list-container {
-    display: flex;
-    gap: 10px;
-}
-
-.list-box {
-    width: 50%;
-}
-
-.list-title {
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.scroll-list {
-    overflow-y: scroll;
-    overflow-x: hidden;
-    max-height: 85vh;
-    border: 1px solid #aaa;
-    border-radius: 4px;
-    padding: 5px;
-    background: #fafafa;
-}
-
-/* PNG listesi butonları */
 .png-btn {
-    width: 100%;
-    margin-bottom: 6px;
-    padding: 6px 4px;
-    border-radius: 5px;
-    border: 1px solid #bbb;
-    background: white;
-    font-size: 14px;
-    text-align: left;
-    cursor: pointer;
+  width:100%; margin-bottom:6px; padding:6px;
+  border-radius:5px; border:1px solid #bbb;
+  background:#fff; cursor:pointer; text-align:left;
 }
-.png-btn:hover {
-    background: #ececec;
-}
+.png-btn:hover { background:#eee; }
 
-/* Sağ taraf görüntüleme */
-#rightSide {
-    flex: 1;
-    padding: 15px;
-    overflow-y: scroll;
-    box-sizing: border-box;
-}
-
-/* Panel görünümü */
+/* SAĞ */
+#right { flex:1; padding:20px; overflow-y:auto; }
 .panel {
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    background: #ffffff;
+  border:1px solid #ccc; margin-bottom:20px;
+  border-radius:6px; background:#fff;
 }
-
 .panel-title {
-    font-weight: bold;
-    text-align: center;
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-    background: #f2f2f2;
+  padding:10px; background:#f2f2f2;
+  border-bottom:1px solid #ddd; text-align:center;
+  font-weight:bold;
 }
-
-/* İç görsel alanı scrollable */
 .img-area {
-    padding: 10px;
-    overflow: scroll;
-    max-height: 65vh;
-    background: #ffffff;
+  max-height:65vh; overflow:auto; padding:10px;
+  background:#fff;
 }
-
 img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 6px;
-    display: block;
-    margin: auto;
+  max-width:85%; height:auto; display:block; margin:auto;
+  box-shadow:0 0 10px rgba(0,0,0,0.15);
 }
 
-/* Laptop görünümü optimize */
-@media (min-width: 900px) {
-    #rightSide {
-        padding: 20px;
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-
-    img {
-        max-width: 85%;
-        max-height: 85%;
-        box-shadow: 0 0 10px rgba(0,0,0,0.15);
-    }
+/* Laptop optimize */
+@media (min-width:900px){
+  #right { max-width:1400px; margin:0 auto; }
 }
 </style>
 </head>
 
 <body>
 
-<!-- ÜST GİRİŞ -->
-<div style="padding:10px; background:#fff; border-bottom:1px solid #ccc;">
-    <input type="file" id="jsonFile" accept=".json">
-    <button onclick="loadPngLists()">Tüm PNG Listelerini Yükle</button>
-    <span id="status" style="margin-left:20px; font-weight:bold;"></span>
+<div id="top">
+  <input type="file" id="jsonFile" accept=".json">
+  <button onclick="start()">Yükle</button>
+  <span id="status" style="margin-left:20px;font-weight:bold;"></span>
 </div>
 
 <div class="container">
 
-    <!-- SOL TARAF -->
-    <div id="leftSide">
-        <div class="list-container">
-
-            <!-- Sorular listesi -->
-            <div class="list-box">
-                <div class="list-title">SORULAR</div>
-                <div id="questionsList" class="scroll-list"></div>
-            </div>
-
-            <!-- Cevaplar listesi -->
-            <div class="list-box">
-                <div class="list-title">CEVAPLAR</div>
-                <div id="answersList" class="scroll-list"></div>
-            </div>
-        </div>
+  <div id="left">
+    <div class="list-wrap">
+      <div class="list-box">
+        <div class="list-title">SORULAR</div>
+        <div id="qlist" class="list-area"></div>
+      </div>
+      <div class="list-box">
+        <div class="list-title">CEVAPLAR</div>
+        <div id="alist" class="list-area"></div>
+      </div>
     </div>
+  </div>
 
-    <!-- SAĞ TARAF -->
-    <div id="rightSide">
-
-        <!-- SORU PANELİ -->
-        <div class="panel">
-            <div id="questionTitle" class="panel-title">Soru seçilmedi</div>
-            <div id="questionImgArea" class="img-area"></div>
-        </div>
-
-        <!-- CEVAP PANELİ -->
-        <div class="panel">
-            <div id="answerTitle" class="panel-title">Cevap seçilmedi</div>
-            <div id="answerImgArea" class="img-area"></div>
-        </div>
-
+  <div id="right">
+    <div class="panel">
+      <div id="qTitle" class="panel-title">Soru seçilmedi</div>
+      <div id="qImg" class="img-area"></div>
     </div>
+    <div class="panel">
+      <div id="aTitle" class="panel-title">Cevap seçilmedi</div>
+      <div id="aImg" class="img-area"></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-// -------- SABİT FOLDER ID’LER --------
-const QUESTIONS_FOLDER = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
-const ANSWERS_FOLDER   = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
+/* ---- FOLDER ID'LER ---- */
+const QF = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
+const AF = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
-let gapiLoaded = false;
-let driveClient = null;
+let SA = null;
 
-// JSON yükleme
-document.getElementById("jsonFile").addEventListener("change", function(ev) {
-    const file = ev.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const key = JSON.parse(e.target.result);
-        loadDriveClient(key);
-    };
-    reader.readAsText(file);
+/* ---- JSON YÜKLE ---- */
+document.getElementById("jsonFile").addEventListener("change", ev => {
+  const f = ev.target.files[0];
+  const r = new FileReader();
+  r.onload = e => SA = JSON.parse(e.target.result);
+  r.readAsText(f);
 });
 
-async function loadDriveClient(key) {
-    driveClient = key;
-    document.getElementById("status").innerText = "JSON yüklendi ✔";
+async function start(){
+  if(!SA){ alert("JSON yok"); return; }
+  document.getElementById("status").textContent="Yükleniyor…";
+
+  await loadGapi();
+  await authorizeSA();
+
+  const q = await listPng(QF);
+  const a = await listPng(AF);
+
+  fillList("qlist", q, true);
+  fillList("alist", a, false);
+
+  document.getElementById("status").textContent="Hazır!";
 }
 
-// -----------------------------------
-// DOSYA LİSTESİ ÇEKME
-// -----------------------------------
-async function fetchPngList(folderId) {
-    const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType='image/png'&key=${driveClient.private_key_id}&fields=files(id,name)`;
-
-    // Service Account ile doğru istek:
-    const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType='image/png'&fields=files(id,name)`,
-        {
-            method: "GET",
-            headers: {
-                "Authorization": "Bearer " + driveClient.private_key_id
-            }
-        }
-    );
-
-    const data = await res.json();
-    if (!data.files) return [];
-
-    // İsim sıralama
-    return data.files.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+/* ---- DRIVE API ---- */
+function loadGapi(){
+  return new Promise(res=>{
+    gapi.load("client", ()=> res());
+  });
 }
 
-// -----------------------------------
-// PNG LİSTELERİNİ YÜKLE
-// -----------------------------------
-async function loadPngLists() {
-    if (!driveClient) {
-        alert("Lütfen önce JSON yükle!");
-        return;
+async function authorizeSA(){
+  const jwt = new gapi.auth.JWT(
+    SA.client_email,
+    null,
+    SA.private_key,
+    ["https://www.googleapis.com/auth/drive.readonly"]
+  );
+  await jwt.authorize();
+  gapi.client.setToken({access_token: jwt.credentials.access_token});
+}
+
+async function listPng(folder){
+  const resp = await gapi.client.request({
+    path: "https://www.googleapis.com/drive/v3/files",
+    params:{
+      q: `'${folder}' in parents and mimeType='image/png'`,
+      fields:"files(id,name)"
     }
-
-    document.getElementById("status").innerText = "Listeler yükleniyor...";
-
-    const [questions, answers] = await Promise.all([
-        fetchPngList(QUESTIONS_FOLDER),
-        fetchPngList(ANSWERS_FOLDER)
-    ]);
-
-    renderList("questionsList", questions, true);
-    renderList("answersList", answers, false);
-
-    document.getElementById("status").innerText = "Listeler hazır.";
+  });
+  return resp.result.files.sort((a,b)=>a.name.localeCompare(b.name,'tr'));
 }
 
-// -----------------------------------
-// PNG LİSTELEME
-// -----------------------------------
-function renderList(targetId, list, isQuestion) {
-    const box = document.getElementById(targetId);
-    box.innerHTML = "";
-
-    list.forEach(file => {
-        let btn = document.createElement("button");
-        btn.className = "png-btn";
-        btn.innerText = file.name;
-        btn.onclick = () => loadImage(file, isQuestion);
-        box.appendChild(btn);
-    });
+/* ---- LİSTE BAS ---- */
+function fillList(id, arr, isQ){
+  const box = document.getElementById(id);
+  box.innerHTML="";
+  arr.forEach(f=>{
+    const b=document.createElement("button");
+    b.className="png-btn";
+    b.textContent=f.name;
+    b.onclick=()=> show(f,isQ);
+    box.appendChild(b);
+  });
 }
 
-// -----------------------------------
-// SAĞ PANELDE GÖSTERME
-// -----------------------------------
-function loadImage(file, isQuestion) {
-
-    const link = 
-      `https://drive.google.com/uc?export=view&id=${file.id}`;
-
-    if (isQuestion) {
-        document.getElementById("questionTitle").innerText = "Soru: " + file.name;
-        document.getElementById("questionImgArea").innerHTML =
-            `<img src="${link}">`;
-    } else {
-        document.getElementById("answerTitle").innerText = "Cevap: " + file.name;
-        document.getElementById("answerImgArea").innerHTML =
-            `<img src="${link}">`;
-    }
+/* ---- GÖSTER ---- */
+function show(f,isQ){
+  const link = `https://drive.google.com/uc?export=view&id=${f.id}`;
+  if(isQ){
+    document.getElementById("qTitle").textContent="Soru: "+f.name;
+    document.getElementById("qImg").innerHTML=`<img src="${link}">`;
+  }else{
+    document.getElementById("aTitle").textContent="Cevap: "+f.name;
+    document.getElementById("aImg").innerHTML=`<img src="${link}">`;
+  }
 }
 </script>
 
