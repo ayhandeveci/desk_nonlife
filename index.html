@@ -1,19 +1,28 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>desk_nonlife</title>
-</head>
 <body>
-
 <div id="login-box">
-    <h3>GitHub Token (tamamı)</h3>
-    <input id="token" type="password" placeholder="github_pat_XXXXXXXX...">
+    <h3>GitHub Token (tamamını gir)</h3>
+    <input id="token" type="password" placeholder="ghp_xxxxx...">
     <button onclick="login()">Giriş</button>
 </div>
 
-<div id="questions" style="display:none;"></div>
+<div id="app" style="display:none; height:100vh; display:flex;">
+    
+    <!-- SOL MENÜ -->
+    <div id="file-list" 
+         style="width:260px; border-right:1px solid #ccc; overflow-y:auto; padding:10px;">
+         <h3>Sorular</h3>
+         <div id="files"></div>
+    </div>
+
+    <!-- SAĞ PANEL (GÖRÜNTÜ) -->
+    <div id="viewer" 
+         style="flex:1; padding:20px; overflow-y:auto; text-align:center;">
+         <h3>Bir soru seçiniz</h3>
+         <img id="preview" src="" 
+              style="max-width:100%; height:auto; display:none;">
+    </div>
+
+</div>
 
 <script src="script.js"></script>
 </body>
-</html>
