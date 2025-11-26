@@ -2,7 +2,26 @@ let sessionToken = null;
 
 const OWNER = "ayhandeveci";
 const REPO = "desk_nonlife_private_questions";
-const FOLDER = "questions";
+const QUESTIONS = "questions";
+const ANSWERS = "answers";
+
+let isMenuOpen = true;
+
+// SOL MENÜYÜ AÇ/KAPAT
+function toggleMenu() {
+    const menu = document.getElementById("file-list");
+
+    if (isMenuOpen) {
+        menu.style.width = "0px";
+        menu.style.padding = "0px";
+    } else {
+        menu.style.width = "260px";
+        menu.style.padding = "10px";
+    }
+
+    isMenuOpen = !isMenuOpen;
+}
+
 
 // GİRİŞ
 async function login() {
@@ -21,28 +40,26 @@ async function login() {
     loadFiles();
 }
 
-// DOSYA LİSTESİNİ ÇEK
+
+// SORULARI LİSTELE
 async function loadFiles() {
     const res = await fetch(
-        `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FOLDER}`,
+        `https://api.github.com/repos/${OWNER}/${REPO}/contents/${QUESTIONS}`,
         { headers: { Authorization: `Bearer ${sessionToken}` } }
     );
 
     const files = await res.json();
 
     if (!Array.isArray(files)) {
-        document.getElementById("file-list").innerHTML =
+        document.getElementById("files").innerHTML =
             "<p>Erişim reddedildi. Token yanlış.</p>";
         return;
     }
 
-    // Sadece PNG'leri al
     const pngs = files.filter(f => f.name.endsWith(".png"));
 
-    // A-Z sıralama
     pngs.sort((a, b) => a.name.localeCompare(b.name));
 
-    // Sol menüye bas
     let html = "";
     pngs.forEach(f => {
         html += `
@@ -56,11 +73,49 @@ async function loadFiles() {
     document.getElementById("files").innerHTML = html;
 }
 
-// SAĞ PANELDE PNG GÖSTER
-function showImage(url, name) {
-    const img = document.getElementById("preview");
-    img.src = url;
-    img.style.display = "block";
+
+// SORU + CEVAP GÖSTERME
+async function showImage(url, fileName) {
+    // SORUYU GÖSTER
+    const qImg = document.getElementById("questionImg");
+    qImg.src = url;
+    qImg.style.display = "block";
+
+    // CEVAP BULMAYA ÇALIŞ
+    const answerUrl = await findAnswer(fileName);
+
+    const aImg = document.getElementById("answerImg");
+    const noAnswer = document.getElementById("noAnswer");
+
+    if (answerUrl) {
+        aImg.src = answerUrl;
+        aImg.style.display = "block";
+        noAnswer.style.display = "none";
+    } else {
+        aImg.style.display = "none";
+        noAnswer.style.display = "block";
+    }
 
     document.getElementById("viewer").scrollTop = 0;
+}
+
+
+// SORU DOSYASINA GÖRE CEVABI BUL
+async function findAnswer(questionFileName) {
+    const answerName = questionFileName.replace(".png", "_cevap.png");
+
+    try {
+        const res = await fetch(
+            `https://api.github.com/repos/${OWNER}/${REPO}/contents/${ANSWERS}/${answerName}`,
+            { headers: { Authorization: `Bearer ${sessionToken}` } }
+        );
+
+        const data = await res.json();
+
+        if (data.download_url) return data.download_url;
+
+        return null;
+    } catch {
+        return null;
+    }
 }
