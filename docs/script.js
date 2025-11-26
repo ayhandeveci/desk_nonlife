@@ -1,12 +1,18 @@
-const PASSWORD = "1234";   // Şifreyi buradan değiştir
+// TOKEN’IN SENDE KALAN İLK KISMI (örnek)
+const TOKEN_PREFIX = "github_pat_11AVQUQKA0KNiexhIMylGz_UelSquaedESvzJD63ZQ7mn7xrniKyYychPmK5A69IgiILVHFXNK";  
 
+let FULL_TOKEN = null; // burada birleşmiş token tutulacak
+
+// Kullanıcı giriş yapınca çağrılır
 function login() {
-    const entered = document.getElementById("pwd").value;
-
-    if (entered !== PASSWORD) {
-        alert("Yanlış şifre!");
+    const suffix = document.getElementById("pwd").value.trim(); // son 8 hane
+    if (suffix.length !== 8) {
+        alert("Son 8 haneyi girmelisin.");
         return;
     }
+
+    // Tam token oluştur
+    FULL_TOKEN = TOKEN_PREFIX + suffix;
 
     document.getElementById("login-box").style.display = "none";
     document.getElementById("questions").style.display = "block";
@@ -14,118 +20,36 @@ function login() {
     loadImages();
 }
 
-function loadImages() {
+// Private repo bilgileri
+const OWNER = "ayhandeveci";
+const REPO  = "desk_nonlife_private_questions";
+const PATH  = "questions";  // PNG klasörü
 
-    const images = [
+// Private repo'dan PNG listesini çek
+async function loadImages() {
 
-"2013_Aralik_1.png",
-"2013_Aralik_2.png",
-"2013_Aralik_3.png",
-"2013_Aralik_4.png",
-"2013_Aralik_5.png",
-"2013_Aralik_6.png",
-"2013_Aralik_7.png",
-"2013_Aralik_8.png",
+    const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`;
 
-"2014_Aralik_1.png",
-"2014_Aralik_2.png",
-"2014_Aralik_3.png",
-"2014_Aralik_4.png",
-"2014_Aralik_5.png",
-"2014_Aralik_6.png",
-"2014_Aralik_7.png",
+    const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${FULL_TOKEN}` }
+    });
 
-"2015_Aralik_1.png",
-"2015_Aralik_2.png",
-"2015_Aralik_3.png",
-"2015_Aralik_4.png",
-"2015_Aralik_5.png",
-"2015_Aralik_6.png",
-"2015_Aralik_7.png",
+    if (!response.ok) {
+        document.getElementById("questions").innerHTML =
+            "<p style='color:red;'>Token hatalı veya erişim yok.</p>";
+        return;
+    }
 
-"2016_Aralik_1.png",
-"2016_Aralik_2.png",
-"2016_Aralik_3.png",
-"2016_Aralik_4.png",
-"2016_Aralik_5.png",
-"2016_Aralik_6.png",
-"2016_Aralik_7.png",
-
-"2017_Aralik_1.png",
-"2017_Aralik_2.png",
-"2017_Aralik_3.png",
-"2017_Aralik_5.png",
-"2017_Aralik_6.png",
-"2017_Aralik_7.png",
-
-"2018_Aralik_1.png",
-"2018_Aralik_2.png",
-"2018_Aralik_3.png",
-"2018_Aralik_4.png",
-"2018_Aralik_5.png",
-"2018_Aralik_6.png",
-"2018_Aralik_7.png",
-
-"2019_Aralik_1.png",
-"2019_Aralik_2.png",
-"2019_Aralik_3.png",
-"2019_Aralik_4.png",
-"2019_Aralik_5.png",
-"2019_Aralik_6.png",
-"2019_Aralik_7.png",
-
-"2021_Kasim_1.png",
-"2021_Kasim_2.png",
-"2021_Kasim_3.png",
-"2021_Kasim_4.png",
-"2021_Kasim_5.png",
-"2021_Kasim_6.png",
-"2021_Kasim_7.png",
-
-"2021_Mayis_1.png",
-"2021_Mayis_2.png",
-"2021_Mayis_3.png",
-"2021_Mayis_4.png",
-"2021_Mayis_5.png",
-"2021_Mayis_6.png",
-"2021_Mayis_7.png",
-
-"2022_Aralik_1.png",
-"2022_Aralik_2.png",
-"2022_Aralik_3.png",
-"2022_Aralik_4.png",
-"2022_Aralik_5.png",
-"2022_Aralik_6.png",
-"2022_Aralik_7.png",
-
-"2023_Aralik_2.png",
-"2023_Aralik_5.png",
-"2023_Aralik_7.png",
-"2023_Aralik_9.png",
-"2023_Aralik_12.png",
-"2023_Aralik_13.png",
-"2023_Aralik_15.png",
-
-"2024_Aralik_1.png",
-"2024_Aralik_2.png",
-"2024_Aralik_3.png",
-"2024_Aralik_4.png",
-"2024_Aralik_5.png",
-"2024_Aralik_6.png",
-"2024_Aralik_7.png",
-"2024_Aralik_8.png",
-"2024_Aralik_9.png",
-"2024_Aralik_11.png",
-"2024_Aralik_13.png",
-"2024_Aralik_15.png"
-
-    ];
+    const files = await response.json();
+    const pngs = files.filter(f => f.name.endsWith(".png"));
 
     const container = document.getElementById("questions");
 
-    images.forEach(file => {
+    pngs.forEach(file => {
         const img = document.createElement("img");
-        img.src = "../questions/" + file;
+        img.src = file.download_url + `?auth=${FULL_TOKEN}`;
+        img.style.width = "100%";
+        img.style.marginBottom = "30px";
         container.appendChild(img);
     });
 }
