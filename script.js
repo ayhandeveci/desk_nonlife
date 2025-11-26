@@ -1,24 +1,20 @@
-// Token'in sabit kısmı (son 8 hane yok)
-const TOKEN_PREFIX = "github_pat_11AVQUQKA0KNiexhIMylGz_UelSquaedESvzJD63ZQ7mn7xrniKyYychPmK5A69IgiILVHFXNK"; 
-
-// PNG'lerin olduğu private repo
+// PRIVATE REPO BİLGİLERİ
 const OWNER = "ayhandeveci";
 const REPO = "desk_nonlife_private_questions";
 const FOLDER = "questions"; // PNG klasörü
 
 async function login() {
-    const last8 = document.getElementById("pwd").value.trim();
+    const FULL_TOKEN = document.getElementById("token").value.trim();
 
-    if (last8.length !== 8) {
-        alert("Token'in son 8 hanesini girmelisin!");
+    if (!FULL_TOKEN.startsWith("github_pat_")) {
+        alert("Geçerli bir GitHub PAT token gir.");
         return;
     }
 
-    const FULL_TOKEN = TOKEN_PREFIX + last8;
-
     document.getElementById("login-box").style.display = "none";
-    document.getElementById("questions").style.display = "block";
-    document.getElementById("questions").innerHTML = "<h3>Yükleniyor...</h3>";
+    const q = document.getElementById("questions");
+    q.style.display = "block";
+    q.innerHTML = "<h3>Yükleniyor...</h3>";
 
     try {
         const res = await fetch(
@@ -31,8 +27,7 @@ async function login() {
         const files = await res.json();
 
         if (!Array.isArray(files)) {
-            document.getElementById("questions").innerHTML =
-                "<p>Erişim reddedildi. Son 8 yanlış.</p>";
+            q.innerHTML = "<p>Erişim reddedildi. Token yanlış.</p>";
             return;
         }
 
@@ -44,11 +39,10 @@ async function login() {
             }
         });
 
-        document.getElementById("questions").innerHTML = html;
+        q.innerHTML = html;
 
     } catch (err) {
         console.error(err);
-        document.getElementById("questions").innerHTML =
-            "<p>Bir hata oluştu.</p>";
+        q.innerHTML = "<p>Bir hata oluştu.</p>";
     }
 }
