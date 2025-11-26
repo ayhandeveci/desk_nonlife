@@ -1,188 +1,385 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8" />
-<title>Viewer</title>
 
-<script src="https://apis.google.com/js/api.js"></script>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Exam Viewer - Soru Cevap</title>
 
 <style>
-body { margin:0; font-family:Arial; }
-#top { padding:10px; background:#fff; border-bottom:1px solid #ccc; }
-.container { display:flex; height:100vh; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
 
-/* SOL */
-#left {
-  width:480px; min-width:480px;
-  border-right:2px solid #ccc;
-  padding:10px; box-sizing:border-box;
-}
-.list-wrap { display:flex; gap:10px; }
-.list-box { width:50%; }
-.list-title { text-align:center; font-weight:bold; margin-bottom:8px; }
-.list-area {
-  border:1px solid #aaa;
-  border-radius:4px;
-  max-height:80vh;
-  overflow-y:auto;
-  padding:5px;
-  background:#fafafa;
-}
-.png-btn {
-  width:100%; margin-bottom:6px; padding:6px;
-  border-radius:5px; border:1px solid #bbb;
-  background:#fff; cursor:pointer; text-align:left;
-}
-.png-btn:hover { background:#eee; }
+  /* ÜST BAR */
+  #topBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 45px;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 10px;
+    background: #ddd;
+    border-bottom: 1px solid #aaa;
+    z-index: 3;
+  }
 
-/* SAĞ */
-#right { flex:1; padding:20px; overflow-y:auto; }
-.panel {
-  border:1px solid #ccc; margin-bottom:20px;
-  border-radius:6px; background:#fff;
-}
-.panel-title {
-  padding:10px; background:#f2f2f2;
-  border-bottom:1px solid #ddd; text-align:center;
-  font-weight:bold;
-}
-.img-area {
-  max-height:65vh; overflow:auto; padding:10px;
-  background:#fff;
-}
-img {
-  max-width:85%; height:auto; display:block; margin:auto;
-  box-shadow:0 0 10px rgba(0,0,0,0.15);
-}
+  button, input[type="file"] {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #fff;
+    font-size: 13px;
+  }
+  button:hover { background: #e7e7e7; }
 
-/* Laptop optimize */
-@media (min-width:900px){
-  #right { max-width:1400px; margin:0 auto; }
-}
+  #status { font-size: 12px; margin-left: 10px; }
+
+  #leftSide, #rightSide {
+    margin-top: 45px;
+    height: calc(100vh - 45px);
+  }
+
+  /* SOL TARAF → 2 LİSTE YAN YANA */
+  #leftSide {
+    width: 460px;
+    display: flex;
+    flex-direction: row;
+    border-right: 1px solid #ccc;
+    background: #f3f3f3;
+  }
+
+  .list-column {
+    flex: none;
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .list-title {
+    font-weight: bold;
+    padding: 8px;
+    background: #e9e9e9;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+  }
+
+  .file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px;
+  }
+
+  .file-item {
+    padding: 6px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .file-item:hover { background: #e5e5e5; }
+
+  /* SAĞ PANEL */
+  #rightSide {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel {
+    flex: 1;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-title {
+    padding: 6px 10px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  /* SADECE BURAYI DEĞİŞTİRDİM: overflow: hidden → auto */
+  .img-area {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;   /* hem yatay hem dikey scroll */
+    background: white;
+  }
+
+  img {
+    max-width: 95%;
+    max-height: 95%;
+  }
+
 </style>
 </head>
 
 <body>
 
-<div id="top">
-  <input type="file" id="jsonFile" accept=".json">
-  <button onclick="start()">Yükle</button>
-  <span id="status" style="margin-left:20px;font-weight:bold;"></span>
+<!-- ÜST BAR -->
+<div id="topBar">
+  <input type="file" id="saFile" accept="application/json">
+  <button id="loadBtn">Tüm PNG Listelerini Yükle</button>
+  <span id="status"></span>
 </div>
 
-<div class="container">
+<!-- SOL TARAF (2 LİSTE YAN YANA) -->
+<div id="leftSide">
 
-  <div id="left">
-    <div class="list-wrap">
-      <div class="list-box">
-        <div class="list-title">SORULAR</div>
-        <div id="qlist" class="list-area"></div>
-      </div>
-      <div class="list-box">
-        <div class="list-title">CEVAPLAR</div>
-        <div id="alist" class="list-area"></div>
-      </div>
-    </div>
+  <div class="list-column">
+    <div class="list-title">SORULAR</div>
+    <div id="soruList" class="file-list"></div>
   </div>
 
-  <div id="right">
-    <div class="panel">
-      <div id="qTitle" class="panel-title">Soru seçilmedi</div>
-      <div id="qImg" class="img-area"></div>
-    </div>
-    <div class="panel">
-      <div id="aTitle" class="panel-title">Cevap seçilmedi</div>
-      <div id="aImg" class="img-area"></div>
-    </div>
+  <div class="list-column" style="border-right:none;">
+    <div class="list-title">CEVAPLAR</div>
+    <div id="cevapList" class="file-list"></div>
+  </div>
+
+</div>
+
+<!-- SAĞ TARAF -->
+<div id="rightSide">
+
+  <div class="panel">
+    <div class="panel-title" id="questionTitle">Soru</div>
+    <div id="questionView" class="img-area"><p>Seçilmedi</p></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title" id="answerTitle">Cevap</div>
+    <div id="answerView" class="img-area"><p>Seçilmedi</p></div>
   </div>
 
 </div>
 
 <script>
-/* ---- FOLDER ID'LER ---- */
-const QF = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
-const AF = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
-let SA = null;
+/* FOLDER ID'LER */
+const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
+const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
-/* ---- JSON YÜKLE ---- */
-document.getElementById("jsonFile").addEventListener("change", ev => {
-  const f = ev.target.files[0];
+/* CACHE */
+let saCredentials = null;
+let cacheSorular = [];
+let cacheCevaplar = [];
+let cachedToken = null;
+let cachedTokenExp = 0;
+
+/* ELEMENTLER */
+const saFileInput = document.getElementById("saFile");
+const loadBtn = document.getElementById("loadBtn");
+const soruListDiv = document.getElementById("soruList");
+const cevapListDiv = document.getElementById("cevapList");
+const statusDiv = document.getElementById("status");
+
+const questionView = document.getElementById("questionView");
+const answerView = document.getElementById("answerView");
+const questionTitle = document.getElementById("questionTitle");
+const answerTitle = document.getElementById("answerTitle");
+
+/* JSON YÜKLEME */
+saFileInput.onchange = () => {
+  const f = saFileInput.files[0];
   const r = new FileReader();
-  r.onload = e => SA = JSON.parse(e.target.result);
+  r.onload = e => {
+    saCredentials = JSON.parse(e.target.result);
+    statusDiv.textContent = "JSON yüklendi.";
+  };
   r.readAsText(f);
-});
+};
 
-async function start(){
-  if(!SA){ alert("JSON yok"); return; }
-  document.getElementById("status").textContent="Yükleniyor…";
-
-  await loadGapi();
-  await authorizeSA();
-
-  const q = await listPng(QF);
-  const a = await listPng(AF);
-
-  fillList("qlist", q, true);
-  fillList("alist", a, false);
-
-  document.getElementById("status").textContent="Hazır!";
-}
-
-/* ---- DRIVE API ---- */
-function loadGapi(){
-  return new Promise(res=>{
-    gapi.load("client", ()=> res());
+/* NUMERİK SIRALAMA FONKSİYONU */
+function sortPngList(list) {
+  return list.sort((a, b) => {
+    const numA = parseInt(a.name.split('.')[0], 10);
+    const numB = parseInt(b.name.split('.')[0], 10);
+    return numA - numB;
   });
 }
 
-async function authorizeSA(){
-  const jwt = new gapi.auth.JWT(
-    SA.client_email,
-    null,
-    SA.private_key,
-    ["https://www.googleapis.com/auth/drive.readonly"]
+/* TÜM LİSTELERİ YÜKLE */
+loadBtn.onclick = async () => {
+  if (!saCredentials) { alert("Önce JSON yükle."); return; }
+
+  statusDiv.textContent = "Sorular yükleniyor...";
+  cacheSorular = sortPngList(await listPNGs(FOLDER_SORULAR));
+
+  statusDiv.textContent = "Cevaplar yükleniyor...";
+  cacheCevaplar = sortPngList(await listPNGs(FOLDER_CEVAPLAR));
+
+  statusDiv.textContent = "Listeler hazır.";
+  drawLists();
+};
+
+/* SOLDAKİ LİSTELERİ ÇİZ */
+function drawLists() {
+  soruListDiv.innerHTML = "";
+  cevapListDiv.innerHTML = "";
+
+  cacheSorular.forEach(item => {
+    const d = document.createElement("div");
+    d.className = "file-item";
+    d.textContent = item.name;
+    d.onclick = () => showQuestion(item);
+    soruListDiv.appendChild(d);
+  });
+
+  cacheCevaplar.forEach(item => {
+    const d = document.createElement("div");
+    d.className = "file-item";
+    d.textContent = item.name;
+    d.onclick = () => showAnswer(item);
+    cevapListDiv.appendChild(d);
+  });
+}
+
+/* SAĞ PANELDE SORU GÖSTER */
+async function showQuestion(file) {
+  questionTitle.textContent = "Soru: " + file.name;
+  questionView.innerHTML = "<p>Yükleniyor...</p>";
+  const img = await fetchPNG(file.id);
+  questionView.innerHTML = "";
+  questionView.appendChild(img);
+}
+
+/* SAĞ PANELDE CEVAP GÖSTER */
+async function showAnswer(file) {
+  answerTitle.textContent = "Cevap: " + file.name;
+  answerView.innerHTML = "<p>Yükleniyor...</p>";
+  const img = await fetchPNG(file.id);
+  answerView.innerHTML = "";
+  answerView.appendChild(img);
+}
+
+/* PNG RESMİ İNDİR */
+async function fetchPNG(id) {
+  const token = await getToken();
+  const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: "Bearer " + token }
+  });
+
+  const blob = await res.blob();
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(blob);
+  return img;
+}
+
+/* DRIVE'DAN PNG DOSYA LİSTESİ */
+async function listPNGs(folderId) {
+  const token = await getToken();
+  const url =
+    `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)&pageSize=500`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: "Bearer " + token }
+  });
+
+  return (await res.json()).files || [];
+}
+
+/* TOKEN YÖNETİMİ */
+async function getToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedToken && cachedTokenExp - 60 > now) return cachedToken;
+
+  const t = await createToken(saCredentials);
+  cachedToken = t.access_token;
+  cachedTokenExp = now + (t.expires_in || 3600);
+  return cachedToken;
+}
+
+async function createToken(sa) {
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/drive.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const unsigned =
+    b64(JSON.stringify(header)) + "." + b64(JSON.stringify(payload));
+
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToBuf(sa.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
   );
-  await jwt.authorize();
-  gapi.client.setToken({access_token: jwt.credentials.access_token});
-}
 
-async function listPng(folder){
-  const resp = await gapi.client.request({
-    path: "https://www.googleapis.com/drive/v3/files",
-    params:{
-      q: `'${folder}' in parents and mimeType='image/png'`,
-      fields:"files(id,name)"
-    }
+  const sig = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(unsigned)
+  );
+
+  const jwt = unsigned + "." + b64Bytes(sig);
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
   });
-  return resp.result.files.sort((a,b)=>a.name.localeCompare(b.name,'tr'));
+
+  return await res.json();
 }
 
-/* ---- LİSTE BAS ---- */
-function fillList(id, arr, isQ){
-  const box = document.getElementById(id);
-  box.innerHTML="";
-  arr.forEach(f=>{
-    const b=document.createElement("button");
-    b.className="png-btn";
-    b.textContent=f.name;
-    b.onclick=()=> show(f,isQ);
-    box.appendChild(b);
-  });
+/* HELPER FONKSİYONLAR */
+function b64(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
-/* ---- GÖSTER ---- */
-function show(f,isQ){
-  const link = `https://drive.google.com/uc?export=view&id=${f.id}`;
-  if(isQ){
-    document.getElementById("qTitle").textContent="Soru: "+f.name;
-    document.getElementById("qImg").innerHTML=`<img src="${link}">`;
-  }else{
-    document.getElementById("aTitle").textContent="Cevap: "+f.name;
-    document.getElementById("aImg").innerHTML=`<img src="${link}">`;
-  }
+function b64Bytes(ab) {
+  let s = "",
+    b = new Uint8Array(ab);
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
+
+function pemToBuf(pem) {
+  const c = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\s+/g, "");
+  const bin = atob(c);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+
 </script>
-
 </body>
 </html>
