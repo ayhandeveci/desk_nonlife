@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <title>Exam Viewer</title>
+  <title>Exam Viewer (Cache Mode)</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -12,6 +12,8 @@
       height: 100vh;
       overflow: hidden;
     }
+
+    /* SIDE */
     #sidebar {
       width: 320px;
       background: #f4f4f4;
@@ -19,8 +21,49 @@
       padding: 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
+
+    #tabs { display: flex; gap: 6px; }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      background: #fff;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .tab.active {
+      background: #ddd;
+      font-weight: bold;
+    }
+
+    #fileList {
+      flex: 1;
+      overflow-y: auto;
+      border-top: 1px solid #ccc;
+      padding-top: 6px;
+    }
+    .file-item {
+      padding: 7px;
+      margin-bottom: 5px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .file-item:hover { background: #e7e7e7; }
+
+    #status {
+      font-size: 12px;
+      color: #555;
+      min-height: 14px;
+    }
+
+    /* RIGHT SIDE */
     #content {
       flex: 1;
       display: flex;
@@ -28,292 +71,302 @@
       background: #fafafa;
       overflow: hidden;
     }
+
     #questionView, #answerView {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
-      border-bottom: 1px solid #ccc;
-      background: #fff;
+      border-bottom: 1px solid #bbb;
+      overflow: hidden;
+      background: white;
     }
-    #answerView {
-      border-bottom: none;
-    }
+    #answerView { border-bottom: none; }
+
     img {
       max-width: 95%;
       max-height: 95%;
     }
-    .label {
-      font-size: 12px;
-      color: #555;
-    }
-    input[type="file"], button {
-      width: 100%;
-    }
-    button {
-      padding: 8px;
-      border-radius: 5px;
-      border: 1px solid #888;
-      background: #fff;
-      cursor: pointer;
-    }
-    button:hover { background: #e7e7e7; }
-    #tabs {
-      display: flex;
-      gap: 4px;
-    }
-    .tab {
-      flex: 1;
-      text-align: center;
-      padding: 6px;
-      border-radius: 4px;
-      border: 1px solid #888;
-      cursor: pointer;
-      background: #fff;
-    }
-    .tab.active {
-      background: #ddd;
-      font-weight: bold;
-    }
-    #fileList {
-      flex: 1;
-      overflow-y: auto;
-      padding-top: 6px;
-      border-top: 1px solid #ddd;
-    }
-    .file-item {
-      padding: 6px 8px;
-      margin-bottom: 4px;
-      background: white;
-      cursor: pointer;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      font-size: 13px;
-    }
-    .file-item:hover { background: #e7e7e7; }
-    #status {
-      font-size: 11px;
-      color: #666;
-      min-height: 14px;
-    }
   </style>
 </head>
-<body>
 
+<body>
 <div id="sidebar">
 
-  <div class="label">Service Account JSON:</div>
-  <input id="saFile" type="file" accept="application/json">
+  <div style="font-size:12px;font-weight:bold;">Service Account JSON:</div>
+  <input type="file" id="saFile" accept="application/json" />
 
   <div id="tabs">
     <div class="tab active" id="tabSorular">Sorular</div>
     <div class="tab" id="tabCevaplar">Cevaplar</div>
   </div>
 
-  <button id="listBtn">Listele</button>
+  <button id="loadAllBtn">Hepsini Yükle (Cache)</button>
   <button id="clearBtn">Temizle</button>
 
   <div id="status"></div>
+
   <div id="fileList"></div>
 </div>
 
+<!-- RIGHT -->
 <div id="content">
-  <div id="questionView"><p>Seçilen soru burada</p></div>
-  <div id="answerView"><p>Seçilen cevap burada</p></div>
+  <div id="questionView"><p>Soru burada</p></div>
+  <div id="answerView"><p>Cevap burada</p></div>
 </div>
 
 <script>
-  const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
-  const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
+/* ------------------------------------------
+    SABİTLER (Senin Folder ID'lerin)
+------------------------------------------- */
+const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
+const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
-  let aktifKlasor = "SORU";
-  let saCredentials = null;
-  let cachedToken = null;
-  let cachedTokenExp = 0;
+/* ------------------------------------------
+    GLOBAL RAM CACHE
+------------------------------------------- */
+let saCredentials = null;
+let cachedToken = null;
+let cachedTokenExp = 0;
 
-  const saFileInput = document.getElementById("saFile");
-  const fileListDiv = document.getElementById("fileList");
-  const questionView = document.getElementById("questionView");
-  const answerView = document.getElementById("answerView");
-  const statusDiv = document.getElementById("status");
+let cacheSorular = [];
+let cacheCevaplar = [];
 
-  document.getElementById("tabSorular").onclick = () => {
-    aktifKlasor = "SORU";
-    setTabActive("SORU");
-  };
-  document.getElementById("tabCevaplar").onclick = () => {
-    aktifKlasor = "CEVAP";
-    setTabActive("CEVAP");
-  };
+let aktifTab = "SORU";
 
-  function setTabActive(k) {
-    document.getElementById("tabSorular").classList.toggle("active", k === "SORU");
-    document.getElementById("tabCevaplar").classList.toggle("active", k === "CEVAP");
-  }
+/* ------------------------------------------
+    ELEMENTLER
+------------------------------------------- */
+const saFileInput = document.getElementById("saFile");
+const fileListDiv = document.getElementById("fileList");
+const statusDiv = document.getElementById("status");
+const questionView = document.getElementById("questionView");
+const answerView = document.getElementById("answerView");
 
-  saFileInput.addEventListener("change", () => {
-    const file = saFileInput.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      saCredentials = JSON.parse(e.target.result);
-      cachedToken = null;
-      cachedTokenExp = 0;
-      statusDiv.textContent = "JSON yüklendi.";
-    };
-    reader.readAsText(file);
-  });
+document.getElementById("tabSorular").onclick = () => switchTab("SORU");
+document.getElementById("tabCevaplar").onclick = () => switchTab("CEVAP");
 
-  document.getElementById("clearBtn").onclick = () => {
-    saCredentials = null;
-    saFileInput.value = "";
+
+/* ------------------------------------------
+    TAB DEĞİŞİMİ
+------------------------------------------- */
+function switchTab(tab) {
+  aktifTab = tab;
+  document.getElementById("tabSorular").classList.toggle("active", tab === "SORU");
+  document.getElementById("tabCevaplar").classList.toggle("active", tab === "CEVAP");
+  drawList();
+}
+
+
+/* ------------------------------------------
+    JSON YÜKLEME
+------------------------------------------- */
+saFileInput.onchange = () => {
+  const file = saFileInput.files[0];
+  if (!file) return;
+
+  const r = new FileReader();
+  r.onload = e => {
+    saCredentials = JSON.parse(e.target.result);
     cachedToken = null;
     cachedTokenExp = 0;
-    fileListDiv.innerHTML = "";
-    questionView.innerHTML = "<p>Seçilen soru burada</p>";
-    answerView.innerHTML = "<p>Seçilen cevap burada</p>";
-    statusDiv.textContent = "Oturum temizlendi.";
+    statusDiv.textContent = "JSON yüklendi. Şimdi 'Hepsini Yükle'ye bas.";
   };
+  r.readAsText(file);
+};
 
-  document.getElementById("listBtn").onclick = async () => {
-    if (!saCredentials) {
-      alert("Önce Service Account JSON yükle!");
-      return;
-    }
 
-    fileListDiv.innerHTML = "";
-    statusDiv.textContent = "Liste çekiliyor...";
-
-    const folder = aktifKlasor === "SORU" ? FOLDER_SORULAR : FOLDER_CEVAPLAR;
-
-    try {
-      const files = await listPNGs(folder);
-      statusDiv.textContent = files.length + " PNG bulundu.";
-      fileListDiv.innerHTML = "";
-
-      files.forEach(f => {
-        const d = document.createElement("div");
-        d.className = "file-item";
-        d.textContent = f.name;
-        d.onclick = () => aktifKlasor === "SORU"
-          ? showQuestion(f.id)
-          : showAnswer(f.id);
-        fileListDiv.appendChild(d);
-      });
-    } catch (e) {
-      statusDiv.textContent = "Hata: " + e;
-    }
-  };
-
-  async function listPNGs(folderId) {
-    const token = await getAccessToken();
-    const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)`;
-    const res = await fetch(url, { headers: { Authorization: "Bearer " + token }});
-    return (await res.json()).files || [];
+/* ------------------------------------------
+    HEPSİNİ YÜKLE (CACHE'E AT)
+------------------------------------------- */
+document.getElementById("loadAllBtn").onclick = async () => {
+  if (!saCredentials) {
+    alert("Önce JSON yükle.");
+    return;
   }
 
-  async function showQuestion(fileId) {
-    statusDiv.textContent = "Soru yükleniyor...";
-    questionView.innerHTML = "<p>Yükleniyor...</p>";
-    const img = await fetchPNG(fileId);
-    questionView.innerHTML = "";
-    questionView.appendChild(img);
-    statusDiv.textContent = "Soru gösteriliyor.";
-  }
+  statusDiv.textContent = "Sorular yükleniyor...";
+  cacheSorular = await listPNGs(FOLDER_SORULAR);
 
-  async function showAnswer(fileId) {
-    statusDiv.textContent = "Cevap yükleniyor...";
-    answerView.innerHTML = "<p>Yükleniyor...</p>";
-    const img = await fetchPNG(fileId);
-    answerView.innerHTML = "";
-    answerView.appendChild(img);
-    statusDiv.textContent = "Cevap gösteriliyor.";
-  }
+  statusDiv.textContent = "Cevaplar yükleniyor...";
+  cacheCevaplar = await listPNGs(FOLDER_CEVAPLAR);
 
-  async function fetchPNG(fileId) {
-    const token = await getAccessToken();
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-    const res = await fetch(url, { headers: { Authorization: "Bearer " + token }});
-    const blob = await res.blob();
-    const img = document.createElement("img");
-    img.src = URL.createObjectURL(blob);
-    return img;
-  }
+  statusDiv.textContent = "Tüm içerik RAM'e alındı.";
+  drawList();
+};
 
-  async function getAccessToken() {
-    const now = Math.floor(Date.now()/1000);
-    if (cachedToken && cachedTokenExp - 60 > now) return cachedToken;
 
-    const t = await generateAccessToken(saCredentials);
-    cachedToken = t.access_token;
-    cachedTokenExp = now + (t.expires_in || 3600);
+/* ------------------------------------------
+    TEMİZLE
+------------------------------------------- */
+document.getElementById("clearBtn").onclick = () => {
+  saCredentials = null;
+  saFileInput.value = "";
+
+  cachedToken = null;
+  cachedTokenExp = 0;
+
+  cacheSorular = [];
+  cacheCevaplar = [];
+
+  fileListDiv.innerHTML = "";
+  questionView.innerHTML = "<p>Soru burada</p>";
+  answerView.innerHTML = "<p>Cevap burada</p>";
+  statusDiv.textContent = "Oturum temizlendi.";
+};
+
+
+/* ------------------------------------------
+    LİSTEYİ ÇİZ
+------------------------------------------- */
+function drawList() {
+  fileListDiv.innerHTML = "";
+
+  const list = aktifTab === "SORU" ? cacheSorular : cacheCevaplar;
+
+  list.forEach(f => {
+    const d = document.createElement("div");
+    d.className = "file-item";
+    d.textContent = f.name;
+    d.onclick = () => aktifTab === "SORU" ? showQuestion(f.id) : showAnswer(f.id);
+    fileListDiv.appendChild(d);
+  });
+}
+
+
+/* ------------------------------------------
+    PNG GETİRME
+------------------------------------------- */
+async function showQuestion(id) {
+  statusDiv.textContent = "Soru yükleniyor...";
+  questionView.innerHTML = "<p>Yükleniyor...</p>";
+  const img = await fetchPNG(id);
+  questionView.innerHTML = "";
+  questionView.appendChild(img);
+  statusDiv.textContent = "";
+}
+
+async function showAnswer(id) {
+  statusDiv.textContent = "Cevap yükleniyor...";
+  answerView.innerHTML = "<p>Yükleniyor...</p>";
+  const img = await fetchPNG(id);
+  answerView.innerHTML = "";
+  answerView.appendChild(img);
+  statusDiv.textContent = "";
+}
+
+
+/* ------------------------------------------
+    DRIVE LİSTESİ
+------------------------------------------- */
+async function listPNGs(folderId) {
+  const token = await getToken();
+  const url =
+    `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)&pageSize=500`;
+
+  const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  return (await res.json()).files || [];
+}
+
+
+/* ------------------------------------------
+    PNG BLOB İNDİR
+------------------------------------------- */
+async function fetchPNG(fileId) {
+  const token = await getToken();
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+
+  const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  const blob = await res.blob();
+
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(blob);
+  return img;
+}
+
+
+/* ------------------------------------------
+    TOKEN OLUŞTURMA (SERVICE ACCOUNT JWT)
+------------------------------------------- */
+async function getToken() {
+  const now = Math.floor(Date.now() / 1000);
+
+  if (cachedToken && cachedTokenExp - 60 > now)
     return cachedToken;
-  }
 
-  async function generateAccessToken(sa) {
-    const header = { alg: "RS256", typ: "JWT" };
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iss: sa.client_email,
-      scope: "https://www.googleapis.com/auth/drive.readonly",
-      aud: "https://oauth2.googleapis.com/token",
-      exp: now + 3600,
-      iat: now
-    };
+  const t = await createToken(saCredentials);
+  cachedToken = t.access_token;
+  cachedTokenExp = now + (t.expires_in || 3600);
+  return cachedToken;
+}
 
-    const encHead = b64(JSON.stringify(header));
-    const encPayload = b64(JSON.stringify(payload));
-    const unsigned = encHead + "." + encPayload;
 
-    const key = await crypto.subtle.importKey(
-      "pkcs8",
-      pemToBuf(sa.private_key),
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
+async function createToken(sa) {
+  const now = Math.floor(Date.now()/1000);
 
-    const sig = await crypto.subtle.sign(
-      "RSASSA-PKCS1-v1_5",
-      key,
-      new TextEncoder().encode(unsigned)
-    );
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/drive.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now
+  };
 
-    const jwt = unsigned + "." + b64Bytes(sig);
+  const head = b64(JSON.stringify(header));
+  const body = b64(JSON.stringify(payload));
+  const unsigned = head + "." + body;
 
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt
-      })
-    });
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToBuf(sa.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
 
-    return await res.json();
-  }
+  const sig = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(unsigned)
+  );
 
-  function b64(str) {
-    return btoa(unescape(encodeURIComponent(str)))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-  }
+  const jwt = unsigned + "." + b64Bytes(sig);
 
-  function b64Bytes(ab) {
-    const bytes = new Uint8Array(ab);
-    let bin = "";
-    bytes.forEach(b => bin += String.fromCharCode(b));
-    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-  }
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {"Content-Type":"application/x-www-form-urlencoded"},
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt
+    })
+  });
 
-  function pemToBuf(pem) {
-    const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, "")
-      .replace(/-----END PRIVATE KEY-----/, "")
-      .replace(/\s+/g, "");
-    const bin = atob(b64);
-    const buf = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    return buf.buffer;
-  }
+  return await res.json();
+}
+
+
+/* ------------------------------------------
+    HELPER FONKSİYONLAR
+------------------------------------------- */
+function b64(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+function b64Bytes(ab) {
+  let s="", b=new Uint8Array(ab);
+  for(let i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+function pemToBuf(pem){
+  const clean=pem.replace(/-----BEGIN PRIVATE KEY-----/,"")
+    .replace(/-----END PRIVATE KEY-----/,"")
+    .replace(/\s+/g,"");
+  const bin=atob(clean);
+  const buf=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  return buf.buffer;
+}
 </script>
 
 </body>
