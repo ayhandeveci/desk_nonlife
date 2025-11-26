@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Exam Viewer - 2 Liste + Panel</title>
+<title>Exam Viewer - Soru Cevap</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -14,9 +14,41 @@
     overflow: hidden;
   }
 
-  /* SOL PANEL */
+  /* ÜST BAR */
+  #topBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 45px;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 10px;
+    background: #ddd;
+    border-bottom: 1px solid #aaa;
+    z-index: 3;
+  }
+
+  button, input[type="file"] {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #fff;
+    font-size: 13px;
+  }
+  button:hover { background: #e7e7e7; }
+
+  #status { font-size: 12px; margin-left: 10px; }
+
+  #leftSide, #rightSide {
+    margin-top: 45px;
+    height: calc(100vh - 45px);
+  }
+
+  /* SOL TARAF → 2 LİSTE YAN YANA */
   #leftSide {
-    width: 450px;
+    width: 460px;
     display: flex;
     flex-direction: row;
     border-right: 1px solid #ccc;
@@ -24,7 +56,10 @@
   }
 
   .list-column {
-    flex: 1;
+    flex: none;
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
     border-right: 1px solid #ccc;
     display: flex;
     flex-direction: column;
@@ -91,40 +126,6 @@
     max-height: 95%;
   }
 
-  /* JSON + LOAD BUTTON ÜST BAR */
-  #topBar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 45px;
-    width: 100%;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    padding: 5px 10px;
-    background: #ddd;
-    border-bottom: 1px solid #aaa;
-    z-index: 3;
-  }
-
-  #leftSide, #rightSide {
-    margin-top: 45px;
-    height: calc(100vh - 45px);
-  }
-
-  button, input[type="file"] {
-    padding: 6px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    background: #fff;
-    font-size: 13px;
-  }
-  button:hover { background: #e7e7e7; }
-
-  #status {
-    font-size: 12px;
-    margin-left: 10px;
-  }
 </style>
 </head>
 
@@ -168,6 +169,7 @@
 </div>
 
 <script>
+
 /* FOLDER ID'LER */
 const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
 const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
@@ -176,7 +178,6 @@ const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 let saCredentials = null;
 let cacheSorular = [];
 let cacheCevaplar = [];
-
 let cachedToken = null;
 let cachedTokenExp = 0;
 
@@ -192,7 +193,7 @@ const answerView = document.getElementById("answerView");
 const questionTitle = document.getElementById("questionTitle");
 const answerTitle = document.getElementById("answerTitle");
 
-/* JSON YÜKLE */
+/* JSON YÜKLEME */
 saFileInput.onchange = () => {
   const f = saFileInput.files[0];
   const r = new FileReader();
@@ -203,21 +204,30 @@ saFileInput.onchange = () => {
   r.readAsText(f);
 };
 
-/* TÜM PNG LİSTELERİNİ ÇEK */
+/* NUMERİK SIRALAMA FONKSİYONU */
+function sortPngList(list) {
+  return list.sort((a, b) => {
+    const numA = parseInt(a.name.split('.')[0], 10);
+    const numB = parseInt(b.name.split('.')[0], 10);
+    return numA - numB;
+  });
+}
+
+/* TÜM LİSTELERİ YÜKLE */
 loadBtn.onclick = async () => {
   if (!saCredentials) { alert("Önce JSON yükle."); return; }
 
   statusDiv.textContent = "Sorular yükleniyor...";
-  cacheSorular = await listPNGs(FOLDER_SORULAR);
+  cacheSorular = sortPngList(await listPNGs(FOLDER_SORULAR));
 
   statusDiv.textContent = "Cevaplar yükleniyor...";
-  cacheCevaplar = await listPNGs(FOLDER_CEVAPLAR);
+  cacheCevaplar = sortPngList(await listPNGs(FOLDER_CEVAPLAR));
 
-  statusDiv.textContent = "Listeler yüklendi.";
+  statusDiv.textContent = "Listeler hazır.";
   drawLists();
 };
 
-/* LİSTELERİ YAZDIR */
+/* SOLDAKİ LİSTELERİ ÇİZ */
 function drawLists() {
   soruListDiv.innerHTML = "";
   cevapListDiv.innerHTML = "";
@@ -239,7 +249,7 @@ function drawLists() {
   });
 }
 
-/* PNG GETİRME */
+/* SAĞ PANELDE SORU GÖSTER */
 async function showQuestion(file) {
   questionTitle.textContent = "Soru: " + file.name;
   questionView.innerHTML = "<p>Yükleniyor...</p>";
@@ -248,6 +258,7 @@ async function showQuestion(file) {
   questionView.appendChild(img);
 }
 
+/* SAĞ PANELDE CEVAP GÖSTER */
 async function showAnswer(file) {
   answerTitle.textContent = "Cevap: " + file.name;
   answerView.innerHTML = "<p>Yükleniyor...</p>";
@@ -256,31 +267,37 @@ async function showAnswer(file) {
   answerView.appendChild(img);
 }
 
-/* PNG İNDİR */
+/* PNG RESMİ İNDİR */
 async function fetchPNG(id) {
   const token = await getToken();
   const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
 
-  const res = await fetch(url, { headers: { Authorization: "Bearer " + token }});
-  const blob = await res.blob();
+  const res = await fetch(url, {
+    headers: { Authorization: "Bearer " + token }
+  });
 
+  const blob = await res.blob();
   const img = document.createElement("img");
   img.src = URL.createObjectURL(blob);
   return img;
 }
 
-/* PNG LİSTELEME */
+/* DRIVE'DAN PNG DOSYA LİSTESİ */
 async function listPNGs(folderId) {
   const token = await getToken();
-  const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)&pageSize=500`;
+  const url =
+    `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)&pageSize=500`;
 
-  const res = await fetch(url, { headers:{ Authorization:"Bearer "+token } });
+  const res = await fetch(url, {
+    headers: { Authorization: "Bearer " + token }
+  });
+
   return (await res.json()).files || [];
 }
 
-/* TOKEN */
+/* TOKEN YÖNETİMİ */
 async function getToken() {
-  const now = Math.floor(Date.now()/1000);
+  const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedTokenExp - 60 > now) return cachedToken;
 
   const t = await createToken(saCredentials);
@@ -290,23 +307,24 @@ async function getToken() {
 }
 
 async function createToken(sa) {
-  const now = Math.floor(Date.now()/1000);
+  const now = Math.floor(Date.now() / 1000);
 
-  const header = { alg:"RS256", typ:"JWT" };
+  const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: sa.client_email,
-    scope:"https://www.googleapis.com/auth/drive.readonly",
-    aud:"https://oauth2.googleapis.com/token",
-    exp: now+3600,
-    iat: now
+    scope: "https://www.googleapis.com/auth/drive.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
   };
 
-  const unsigned = b64(JSON.stringify(header)) + "." + b64(JSON.stringify(payload));
+  const unsigned =
+    b64(JSON.stringify(header)) + "." + b64(JSON.stringify(payload));
 
   const key = await crypto.subtle.importKey(
     "pkcs8",
     pemToBuf(sa.private_key),
-    { name:"RSASSA-PKCS1-v1_5", hash:"SHA-256" },
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]
   );
@@ -320,34 +338,43 @@ async function createToken(sa) {
   const jwt = unsigned + "." + b64Bytes(sig);
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
-    method:"POST",
-    headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt
-    })
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
   });
 
   return await res.json();
 }
 
-/* HELPER */
-function b64(str){
+/* HELPER FONKSİYONLAR */
+function b64(str) {
   return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
-function b64Bytes(ab){
-  let s="", b=new Uint8Array(ab);
-  for(let i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);
-  return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+
+function b64Bytes(ab) {
+  let s = "",
+    b = new Uint8Array(ab);
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
-function pemToBuf(pem){
-  const c=pem.replace(/-----BEGIN PRIVATE KEY-----/,"")
-             .replace(/-----END PRIVATE KEY-----/,"")
-             .replace(/\s+/g,"");
-  const bin=atob(c);
-  const buf=new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+
+function pemToBuf(pem) {
+  const c = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\s+/g, "");
+  const bin = atob(c);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
   return buf.buffer;
 }
 
