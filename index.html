@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <title>Drive PNG Viewer (Service Account)</title>
+  <title>Exam Viewer</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -10,6 +10,7 @@
       font-family: Arial, sans-serif;
       display: flex;
       height: 100vh;
+      overflow: hidden;
     }
     #sidebar {
       width: 320px;
@@ -23,46 +24,62 @@
     #content {
       flex: 1;
       display: flex;
+      flex-direction: column;
+      background: #fafafa;
+      overflow: hidden;
+    }
+    #questionView, #answerView {
+      flex: 1;
+      display: flex;
       justify-content: center;
       align-items: center;
-      background: #fafafa;
+      border-bottom: 1px solid #ccc;
+      background: #fff;
     }
-    #content img {
+    #answerView {
+      border-bottom: none;
+    }
+    img {
       max-width: 95%;
       max-height: 95%;
-      border: 1px solid #ccc;
-      background: white;
     }
     .label {
       font-size: 12px;
       color: #555;
-      margin-bottom: 2px;
     }
-    input[type="text"] {
-      width: 100%;
-      padding: 6px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    input[type="file"] {
+    input[type="file"], button {
       width: 100%;
     }
     button {
       padding: 8px;
-      border-radius: 4px;
+      border-radius: 5px;
       border: 1px solid #888;
       background: #fff;
       cursor: pointer;
     }
-    button:hover {
-      background: #e7e7e7;
+    button:hover { background: #e7e7e7; }
+    #tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #888;
+      cursor: pointer;
+      background: #fff;
+    }
+    .tab.active {
+      background: #ddd;
+      font-weight: bold;
     }
     #fileList {
       flex: 1;
       overflow-y: auto;
-      margin-top: 8px;
-      border-top: 1px solid #ddd;
       padding-top: 6px;
+      border-top: 1px solid #ddd;
     }
     .file-item {
       padding: 6px 8px;
@@ -72,11 +89,8 @@
       border-radius: 4px;
       border: 1px solid #ddd;
       font-size: 13px;
-      word-break: break-all;
     }
-    .file-item:hover {
-      background: #e7e7e7;
-    }
+    .file-item:hover { background: #e7e7e7; }
     #status {
       font-size: 11px;
       color: #666;
@@ -87,175 +101,157 @@
 <body>
 
 <div id="sidebar">
-  <div>
-    <div class="label">Service Account JSON (kendi hesabın):</div>
-    <input id="saFile" type="file" accept="application/json">
+
+  <div class="label">Service Account JSON:</div>
+  <input id="saFile" type="file" accept="application/json">
+
+  <div id="tabs">
+    <div class="tab active" id="tabSorular">Sorular</div>
+    <div class="tab" id="tabCevaplar">Cevaplar</div>
   </div>
 
-  <div>
-    <div class="label">Drive Folder ID:</div>
-    <input id="folderInput" type="text" placeholder="1AbCdeFg...">
-  </div>
-
-  <div style="display:flex; gap:6px;">
-    <button id="listBtn">PNG’leri Listele</button>
-    <button id="clearBtn">Temizle</button>
-  </div>
+  <button id="listBtn">Listele</button>
+  <button id="clearBtn">Temizle</button>
 
   <div id="status"></div>
-
   <div id="fileList"></div>
 </div>
 
 <div id="content">
-  <p>Sol taraftan Service Account JSON yükle, klasör ID gir, sonra “PNG’leri Listele”ye bas.</p>
+  <div id="questionView"><p>Seçilen soru burada</p></div>
+  <div id="answerView"><p>Seçilen cevap burada</p></div>
 </div>
 
 <script>
-  // Global sadece RAM'de tutulacak
+  const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
+  const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
+
+  let aktifKlasor = "SORU";
   let saCredentials = null;
   let cachedToken = null;
-  let cachedTokenExp = 0; // epoch saniye
+  let cachedTokenExp = 0;
 
   const saFileInput = document.getElementById("saFile");
-  const folderInput = document.getElementById("folderInput");
   const fileListDiv = document.getElementById("fileList");
-  const contentDiv = document.getElementById("content");
+  const questionView = document.getElementById("questionView");
+  const answerView = document.getElementById("answerView");
   const statusDiv = document.getElementById("status");
-  const listBtn = document.getElementById("listBtn");
-  const clearBtn = document.getElementById("clearBtn");
+
+  document.getElementById("tabSorular").onclick = () => {
+    aktifKlasor = "SORU";
+    setTabActive("SORU");
+  };
+  document.getElementById("tabCevaplar").onclick = () => {
+    aktifKlasor = "CEVAP";
+    setTabActive("CEVAP");
+  };
+
+  function setTabActive(k) {
+    document.getElementById("tabSorular").classList.toggle("active", k === "SORU");
+    document.getElementById("tabCevaplar").classList.toggle("active", k === "CEVAP");
+  }
 
   saFileInput.addEventListener("change", () => {
     const file = saFileInput.files[0];
-    if (!file) {
-      saCredentials = null;
-      statusDiv.textContent = "JSON seçilmedi.";
-      return;
-    }
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        saCredentials = JSON.parse(e.target.result);
-        cachedToken = null;
-        cachedTokenExp = 0;
-        statusDiv.textContent = "Service account JSON yüklendi.";
-      } catch (err) {
-        saCredentials = null;
-        statusDiv.textContent = "JSON parse hatası: " + err;
-      }
+    reader.onload = e => {
+      saCredentials = JSON.parse(e.target.result);
+      cachedToken = null;
+      cachedTokenExp = 0;
+      statusDiv.textContent = "JSON yüklendi.";
     };
     reader.readAsText(file);
   });
 
-  listBtn.addEventListener("click", async () => {
-    const folderId = folderInput.value.trim();
-    if (!saCredentials) {
-      alert("Önce service account JSON dosyasını yükle.");
-      return;
-    }
-    if (!folderId) {
-      alert("Folder ID gir.");
-      return;
-    }
-    fileListDiv.innerHTML = "";
-    statusDiv.textContent = "PNG listesi çekiliyor...";
-    try {
-      const files = await listPNGs(folderId);
-      if (!files || files.length === 0) {
-        fileListDiv.textContent = "Bu klasörde PNG bulunamadı.";
-        statusDiv.textContent = "PNG bulunamadı.";
-        return;
-      }
-      statusDiv.textContent = "Toplam " + files.length + " PNG bulundu.";
-      files.forEach(file => {
-        const div = document.createElement("div");
-        div.className = "file-item";
-        div.textContent = file.name;
-        div.onclick = () => showPNG(file.id);
-        fileListDiv.appendChild(div);
-      });
-    } catch (e) {
-      console.error(e);
-      statusDiv.textContent = "Listeleme hatası: " + e;
-      fileListDiv.textContent = "Hata oluştu.";
-    }
-  });
-
-  clearBtn.addEventListener("click", () => {
+  document.getElementById("clearBtn").onclick = () => {
     saCredentials = null;
+    saFileInput.value = "";
     cachedToken = null;
     cachedTokenExp = 0;
-    saFileInput.value = "";
-    folderInput.value = "";
     fileListDiv.innerHTML = "";
-    contentDiv.innerHTML = "<p>Sol taraftan Service Account JSON yükle, klasör ID gir, sonra “PNG’leri Listele”ye bas.</p>";
-    statusDiv.textContent = "Oturum temizlendi. JSON tekrar yüklenmeli.";
-  });
+    questionView.innerHTML = "<p>Seçilen soru burada</p>";
+    answerView.innerHTML = "<p>Seçilen cevap burada</p>";
+    statusDiv.textContent = "Oturum temizlendi.";
+  };
+
+  document.getElementById("listBtn").onclick = async () => {
+    if (!saCredentials) {
+      alert("Önce Service Account JSON yükle!");
+      return;
+    }
+
+    fileListDiv.innerHTML = "";
+    statusDiv.textContent = "Liste çekiliyor...";
+
+    const folder = aktifKlasor === "SORU" ? FOLDER_SORULAR : FOLDER_CEVAPLAR;
+
+    try {
+      const files = await listPNGs(folder);
+      statusDiv.textContent = files.length + " PNG bulundu.";
+      fileListDiv.innerHTML = "";
+
+      files.forEach(f => {
+        const d = document.createElement("div");
+        d.className = "file-item";
+        d.textContent = f.name;
+        d.onclick = () => aktifKlasor === "SORU"
+          ? showQuestion(f.id)
+          : showAnswer(f.id);
+        fileListDiv.appendChild(d);
+      });
+    } catch (e) {
+      statusDiv.textContent = "Hata: " + e;
+    }
+  };
 
   async function listPNGs(folderId) {
     const token = await getAccessToken();
-    const url = "https://www.googleapis.com/drive/v3/files"
-      + "?q='" + encodeURIComponent(folderId) + "' in parents and mimeType='image/png'"
-      + "&fields=files(id,name)";
-    const res = await fetch(url, {
-      headers: { Authorization: "Bearer " + token }
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error("Drive list hatası: " + res.status + " - " + txt);
-    }
-    const data = await res.json();
-    return data.files || [];
+    const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)`;
+    const res = await fetch(url, { headers: { Authorization: "Bearer " + token }});
+    return (await res.json()).files || [];
   }
 
-  async function showPNG(fileId) {
-    statusDiv.textContent = "PNG indiriliyor...";
-    contentDiv.innerHTML = "<p>Yükleniyor...</p>";
-    try {
-      const token = await getAccessToken();
-      const url = "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(fileId) + "?alt=media";
-      const res = await fetch(url, {
-        headers: { Authorization: "Bearer " + token }
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error("PNG fetch hatası: " + res.status + " - " + txt);
-      }
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      contentDiv.innerHTML = "";
-      const img = document.createElement("img");
-      img.src = objUrl;
-      contentDiv.appendChild(img);
-      statusDiv.textContent = "PNG gösteriliyor.";
-    } catch (e) {
-      console.error(e);
-      contentDiv.innerHTML = "<p>Görsel yüklenemedi.</p>";
-      statusDiv.textContent = "PNG gösterim hatası: " + e;
-    }
+  async function showQuestion(fileId) {
+    statusDiv.textContent = "Soru yükleniyor...";
+    questionView.innerHTML = "<p>Yükleniyor...</p>";
+    const img = await fetchPNG(fileId);
+    questionView.innerHTML = "";
+    questionView.appendChild(img);
+    statusDiv.textContent = "Soru gösteriliyor.";
+  }
+
+  async function showAnswer(fileId) {
+    statusDiv.textContent = "Cevap yükleniyor...";
+    answerView.innerHTML = "<p>Yükleniyor...</p>";
+    const img = await fetchPNG(fileId);
+    answerView.innerHTML = "";
+    answerView.appendChild(img);
+    statusDiv.textContent = "Cevap gösteriliyor.";
+  }
+
+  async function fetchPNG(fileId) {
+    const token = await getAccessToken();
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+    const res = await fetch(url, { headers: { Authorization: "Bearer " + token }});
+    const blob = await res.blob();
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(blob);
+    return img;
   }
 
   async function getAccessToken() {
-    if (!saCredentials) {
-      throw new Error("Service account JSON yok.");
-    }
-    const now = Math.floor(Date.now() / 1000);
-    if (cachedToken && cachedTokenExp - 60 > now) {
-      return cachedToken;
-    }
-    statusDiv.textContent = "Token üretiliyor...";
-    const tokenData = await generateAccessToken(saCredentials);
-    cachedToken = tokenData.access_token;
-    cachedTokenExp = now + (tokenData.expires_in || 3600);
+    const now = Math.floor(Date.now()/1000);
+    if (cachedToken && cachedTokenExp - 60 > now) return cachedToken;
+
+    const t = await generateAccessToken(saCredentials);
+    cachedToken = t.access_token;
+    cachedTokenExp = now + (t.expires_in || 3600);
     return cachedToken;
   }
 
   async function generateAccessToken(sa) {
-    const header = {
-      alg: "RS256",
-      typ: "JWT"
-    };
-
+    const header = { alg: "RS256", typ: "JWT" };
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       iss: sa.client_email,
@@ -265,75 +261,58 @@
       iat: now
     };
 
-    const encodedHeader = base64urlEncode(JSON.stringify(header));
-    const encodedPayload = base64urlEncode(JSON.stringify(payload));
-    const unsignedToken = encodedHeader + "." + encodedPayload;
+    const encHead = b64(JSON.stringify(header));
+    const encPayload = b64(JSON.stringify(payload));
+    const unsigned = encHead + "." + encPayload;
 
-    const keyData = pemToArrayBuffer(sa.private_key);
     const key = await crypto.subtle.importKey(
       "pkcs8",
-      keyData,
+      pemToBuf(sa.private_key),
       { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
       false,
       ["sign"]
     );
 
-    const signature = await crypto.subtle.sign(
+    const sig = await crypto.subtle.sign(
       "RSASSA-PKCS1-v1_5",
       key,
-      new TextEncoder().encode(unsignedToken)
+      new TextEncoder().encode(unsigned)
     );
 
-    const encodedSignature = base64urlEncodeBytes(signature);
-    const jwt = unsignedToken + "." + encodedSignature;
-
-    const body = new URLSearchParams();
-    body.append("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer");
-    body.append("assertion", jwt);
+    const jwt = unsigned + "." + b64Bytes(sig);
 
     const res = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: jwt
+      })
     });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error("Token endpoint hatası: " + res.status + " - " + txt);
-    }
 
     return await res.json();
   }
 
-  function base64urlEncode(str) {
-    // UTF-8 string -> base64url
-    const b64 = btoa(unescape(encodeURIComponent(str)));
-    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  function b64(str) {
+    return btoa(unescape(encodeURIComponent(str)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
 
-  function base64urlEncodeBytes(arrayBuffer) {
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const b64 = btoa(binary);
-    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  function b64Bytes(ab) {
+    const bytes = new Uint8Array(ab);
+    let bin = "";
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
 
-  function pemToArrayBuffer(pem) {
-    const cleaned = pem
-      .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-      .replace(/-----END PRIVATE KEY-----/g, "")
-      .replace(/\r?\n|\r/g, "")
-      .trim();
-    const binary = atob(cleaned);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
+  function pemToBuf(pem) {
+    const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, "")
+      .replace(/-----END PRIVATE KEY-----/, "")
+      .replace(/\s+/g, "");
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return buf.buffer;
   }
 </script>
 
