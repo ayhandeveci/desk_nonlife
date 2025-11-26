@@ -1,70 +1,66 @@
-// Global RAM değişkeni (geçici oturum hafızası)
 let sessionToken = null;
 
 const OWNER = "ayhandeveci";
 const REPO = "desk_nonlife_private_questions";
 const FOLDER = "questions";
 
+// GİRİŞ
 async function login() {
     const token = document.getElementById("token").value.trim();
 
     if (token.length < 20) {
-        alert("Lütfen tam token'i gir.");
+        alert("Tam token gir.");
         return;
     }
 
-    // 🔐 Token sadece RAM'de tutuluyor
     sessionToken = token;
 
     document.getElementById("login-box").style.display = "none";
-    document.getElementById("questions").style.display = "block";
-    document.getElementById("questions").innerHTML = "<h3>Yükleniyor...</h3>";
+    document.getElementById("app").style.display = "flex";
 
-    loadQuestions();
+    loadFiles();
 }
 
-async function loadQuestions() {
-    if (!sessionToken) {
-        document.getElementById("questions").innerHTML =
-            "<p>Oturum bulunamadı. Sayfayı yenileyin.</p>";
+// DOSYA LİSTESİNİ ÇEK
+async function loadFiles() {
+    const res = await fetch(
+        `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FOLDER}`,
+        { headers: { Authorization: `Bearer ${sessionToken}` } }
+    );
+
+    const files = await res.json();
+
+    if (!Array.isArray(files)) {
+        document.getElementById("file-list").innerHTML =
+            "<p>Erişim reddedildi. Token yanlış.</p>";
         return;
     }
 
-    try {
-        const res = await fetch(
-            `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FOLDER}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${sessionToken}`
-                }
-            }
-        );
+    // Sadece PNG'leri al
+    const pngs = files.filter(f => f.name.endsWith(".png"));
 
-        const files = await res.json();
+    // A-Z sıralama
+    pngs.sort((a, b) => a.name.localeCompare(b.name));
 
-        if (!Array.isArray(files)) {
-            document.getElementById("questions").innerHTML =
-                "<p>Erişim reddedildi. Token yanlış.</p>";
-            return;
-        }
+    // Sol menüye bas
+    let html = "";
+    pngs.forEach(f => {
+        html += `
+            <div onclick="showImage('${f.download_url}', '${f.name}')"
+                 style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;">
+                ${f.name}
+            </div>
+        `;
+    });
 
-        let html = "";
-        files.forEach(f => {
-            if (f.name.endsWith(".png")) {
-                html += `
-                    <div style="margin-bottom:20px;">
-                        <h4>${f.name}</h4>
-                        <img src="${f.download_url}" 
-                             style="width:100%; max-width:700px;">
-                    </div>`;
-            }
-        });
+    document.getElementById("files").innerHTML = html;
+}
 
-        document.getElementById("questions").innerHTML = html;
+// SAĞ PANELDE PNG GÖSTER
+function showImage(url, name) {
+    const img = document.getElementById("preview");
+    img.src = url;
+    img.style.display = "block";
 
-    } catch (err) {
-        console.error(err);
-        document.getElementById("questions").innerHTML =
-            "<p>Bir hata oluştu.</p>";
-    }
+    document.getElementById("viewer").scrollTop = 0;
 }
