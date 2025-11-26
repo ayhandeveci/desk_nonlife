@@ -1,51 +1,61 @@
-<body>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Desk Nonlife</title>
+</head>
 
-<!-- SOL PANEL TOGGLE BUTONU -->
-<button id="toggleBtn" 
-        onclick="toggleMenu()"
-        style="position:absolute; left:10px; top:10px; padding:6px 10px; z-index:999;">
+<body style="margin:0; font-family: Arial;">
+
+<!-- 🔹 SOL PANEL TOGGLE BUTTON -->
+<button id="toggleBtn"
+    onclick="toggleMenu()"
+    style="
+        position:fixed;
+        left:10px;
+        top:10px;
+        padding:6px 10px;
+        z-index:999;
+        background:#eee;
+        border:1px solid #ccc;
+        border-radius:5px;
+        cursor:pointer;
+    ">
     ☰
 </button>
 
-
-<!-- GİRİŞ EKRANI -->
-<div id="login-box" style="padding:30px;">
-    <h3>GitHub Token (tamamını gir)</h3>
-    <input id="token" type="password" placeholder="ghp_xxxxx..." style="width:250px;">
-    <button onclick="login()">Giriş</button>
+<!-- 🔹 SOL PANEL -->
+<div id="file-list"
+     style="
+        width:260px;
+        border-right:1px solid #ccc;
+        overflow-y:auto;
+        padding:10px;
+        transition: transform .3s ease;
+        height:100vh;
+        position:fixed;
+        top:0;
+        left:0;
+        background:white;
+        z-index:900;
+        transform:translateX(0);
+     ">
+    <h3>Sorular</h3>
+    <div id="files"></div>
 </div>
 
-
-<!-- ANA UYGULAMA -->
-<div id="app" style="display:none; height:100vh; display:flex;">
-
-    <!-- SOL MENÜ -->
-    <div id="file-list" 
-         style="width:260px; border-right:1px solid #ccc; overflow-y:auto; padding:10px; transition:0.3s;">
-        <h3>Sorular</h3>
-        <div id="files"></div>
-    </div>
-
-
-    <!-- SAĞ PANEL (SORU + CEVAP) -->
-    <div id="viewer" 
-         style="flex:1; padding:20px; overflow-y:auto; text-align:center;">
-
-         <h3>Bir soru seçiniz</h3>
-
-         <!-- SORU -->
-         <img id="questionImg" src="" 
-              style="max-width:100%; height:auto; display:none; margin-bottom:40px;">
-
-         <!-- CEVAP -->
-         <img id="answerImg" src="" 
-              style="max-width:100%; height:auto; display:none; border-top:1px solid #eee; padding-top:20px;">
-
-         <!-- CEVAP YOKSA MESAJ -->
-         <p id="noAnswer" style="display:none; color:#888;">Bu sorunun cevabı yüklenmemiş.</p>
-    </div>
+<!-- 🔹 SAĞ TARAFTA SORU GÖRÜNTÜLEME PANELİ -->
+<div id="viewer"
+     style="
+        padding:40px 20px 20px 300px;
+        min-height:100vh;
+        overflow-y:auto;
+        text-align:center;
+     ">
+    <h2>Bir soru seçiniz</h2>
+    <div id="question-area"></div>
 </div>
-
 
 <script src="script.js"></script>
 </body>
+</html>
