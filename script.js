@@ -1,48 +1,70 @@
-// PRIVATE REPO BİLGİLERİ
+// Global RAM değişkeni (geçici oturum hafızası)
+let sessionToken = null;
+
 const OWNER = "ayhandeveci";
 const REPO = "desk_nonlife_private_questions";
-const FOLDER = "questions"; // PNG klasörü
+const FOLDER = "questions";
 
 async function login() {
-    const FULL_TOKEN = document.getElementById("token").value.trim();
+    const token = document.getElementById("token").value.trim();
 
-    if (!FULL_TOKEN.startsWith("github_pat_")) {
-        alert("Geçerli bir GitHub PAT token gir.");
+    if (token.length < 20) {
+        alert("Lütfen tam token'i gir.");
         return;
     }
 
+    // 🔐 Token sadece RAM'de tutuluyor
+    sessionToken = token;
+
     document.getElementById("login-box").style.display = "none";
-    const q = document.getElementById("questions");
-    q.style.display = "block";
-    q.innerHTML = "<h3>Yükleniyor...</h3>";
+    document.getElementById("questions").style.display = "block";
+    document.getElementById("questions").innerHTML = "<h3>Yükleniyor...</h3>";
+
+    loadQuestions();
+}
+
+async function loadQuestions() {
+    if (!sessionToken) {
+        document.getElementById("questions").innerHTML =
+            "<p>Oturum bulunamadı. Sayfayı yenileyin.</p>";
+        return;
+    }
 
     try {
         const res = await fetch(
             `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FOLDER}`,
             {
-                headers: { Authorization: `token ${FULL_TOKEN}` }
+                headers: {
+                    Authorization: `Bearer ${sessionToken}`
+                }
             }
         );
 
         const files = await res.json();
 
         if (!Array.isArray(files)) {
-            q.innerHTML = "<p>Erişim reddedildi. Token yanlış.</p>";
+            document.getElementById("questions").innerHTML =
+                "<p>Erişim reddedildi. Token yanlış.</p>";
             return;
         }
 
-        // PNG’leri göster
         let html = "";
         files.forEach(f => {
             if (f.name.endsWith(".png")) {
-                html += `<img src="${f.download_url}" style="width:100%; max-width:700px; margin-bottom:30px;">`;
+                html += `
+                    <div style="margin-bottom:20px;">
+                        <h4>${f.name}</h4>
+                        <img src="${f.download_url}" 
+                             style="width:100%; max-width:700px;">
+                    </div>`;
             }
         });
 
-        q.innerHTML = html;
+        document.getElementById("questions").innerHTML = html;
 
     } catch (err) {
         console.error(err);
-        q.innerHTML = "<p>Bir hata oluştu.</p>";
+        document.getElementById("questions").innerHTML =
+            "<p>Bir hata oluştu.</p>";
     }
 }
