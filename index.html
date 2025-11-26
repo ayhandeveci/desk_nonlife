@@ -1,187 +1,211 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Exam Viewer</title>
+<meta charset="UTF-8">
+<title>Exam Viewer - 2 Liste + Panel</title>
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial;
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
 
-    /* ------------ SOL PANEL ------------ */
-    #sidebar {
-      width: 300px;
-      background: #f4f4f4;
-      border-right: 1px solid #ddd;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+  /* SOL PANEL */
+  #leftSide {
+    width: 450px;
+    display: flex;
+    flex-direction: row;
+    border-right: 1px solid #ccc;
+    background: #f3f3f3;
+  }
 
-    input[type="file"] {
-      width: 100%;
-      padding: 6px;
-      border-radius: 4px;
-      border: 1px solid #aaa;
-      background: #fff;
-    }
+  .list-column {
+    flex: 1;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+  }
 
-    button {
-      width: 100%;
-      padding: 10px;
-      background: #fff;
-      border: 1px solid #777;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:hover { background: #e7e7e7; }
+  .list-title {
+    font-weight: bold;
+    padding: 8px;
+    background: #e9e9e9;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+  }
 
-    #fileList {
-      flex: 1;
-      overflow-y: auto;
-      border-top: 1px solid #ccc;
-      padding-top: 10px;
-    }
+  .file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px;
+  }
 
-    .file-item {
-      padding: 7px;
-      margin-bottom: 5px;
-      background: white;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      cursor: pointer;
-      font-size: 13px;
-    }
+  .file-item {
+    padding: 6px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .file-item:hover { background: #e5e5e5; }
 
-    .file-item:hover { background: #e7e7e7; }
+  /* SAĞ PANEL */
+  #rightSide {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
 
-    #status { font-size: 12px; color:#444; }
+  .panel {
+    flex: 1;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+  }
 
-    /* ----------- SAĞ PANEL ----------- */
-    #content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-    }
+  .panel-title {
+    padding: 6px 10px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    font-weight: bold;
+    font-size: 14px;
+  }
 
-    .panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid #ddd;
-      overflow: hidden;
-    }
+  .img-area {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    background: white;
+  }
 
-    .title-bar {
-      padding: 5px 10px;
-      background: #f1f1f1;
-      border-bottom: 1px solid #ccc;
-      font-size: 14px;
-      font-weight: bold;
-    }
+  img {
+    max-width: 95%;
+    max-height: 95%;
+  }
 
-    .img-holder {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      background: white;
-    }
+  /* JSON + LOAD BUTTON ÜST BAR */
+  #topBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 45px;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 10px;
+    background: #ddd;
+    border-bottom: 1px solid #aaa;
+    z-index: 3;
+  }
 
-    img {
-      max-width: 95%;
-      max-height: 95%;
-    }
+  #leftSide, #rightSide {
+    margin-top: 45px;
+    height: calc(100vh - 45px);
+  }
 
-    @media (max-width: 600px) {
-      #sidebar { width: 200px; }
-      button { font-size: 13px; padding: 8px; }
-    }
-  </style>
+  button, input[type="file"] {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #fff;
+    font-size: 13px;
+  }
+  button:hover { background: #e7e7e7; }
 
+  #status {
+    font-size: 12px;
+    margin-left: 10px;
+  }
+</style>
 </head>
+
 <body>
 
-<!-- ---------------- SOL PANEL ---------------- -->
-<div id="sidebar">
+<!-- ÜST BAR -->
+<div id="topBar">
+  <input type="file" id="saFile" accept="application/json">
+  <button id="loadBtn">Tüm PNG Listelerini Yükle</button>
+  <span id="status"></span>
+</div>
 
-  <input id="saFile" type="file" accept="application/json">
-  <button id="loadBtn">Soruları Yükle</button>
-  <div id="status"></div>
+<!-- SOL TARAF (2 LİSTE YAN YANA) -->
+<div id="leftSide">
 
-  <div id="fileList"></div>
+  <div class="list-column">
+    <div class="list-title">SORULAR</div>
+    <div id="soruList" class="file-list"></div>
+  </div>
+
+  <div class="list-column" style="border-right:none;">
+    <div class="list-title">CEVAPLAR</div>
+    <div id="cevapList" class="file-list"></div>
+  </div>
 
 </div>
 
-<!-- ---------------- SAĞ PANEL ---------------- -->
-<div id="content">
+<!-- SAĞ TARAF -->
+<div id="rightSide">
 
   <div class="panel">
-    <div class="title-bar" id="questionTitle">Soru</div>
-    <div class="img-holder" id="questionView">
-      <p>Seçilmedi</p>
-    </div>
+    <div class="panel-title" id="questionTitle">Soru</div>
+    <div id="questionView" class="img-area"><p>Seçilmedi</p></div>
   </div>
 
   <div class="panel">
-    <div class="title-bar" id="answerTitle">Cevap</div>
-    <div class="img-holder" id="answerView">
-      <p>Seçilmedi</p>
-    </div>
+    <div class="panel-title" id="answerTitle">Cevap</div>
+    <div id="answerView" class="img-area"><p>Seçilmedi</p></div>
   </div>
 
 </div>
 
 <script>
-/* SABİT KLASÖR ID'LERİ */
+/* FOLDER ID'LER */
 const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
 const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
 /* CACHE */
 let saCredentials = null;
-let cachedToken = null;
-let cachedTokenExp = 0;
-
 let cacheSorular = [];
 let cacheCevaplar = [];
+
+let cachedToken = null;
+let cachedTokenExp = 0;
 
 /* ELEMENTLER */
 const saFileInput = document.getElementById("saFile");
 const loadBtn = document.getElementById("loadBtn");
-const fileListDiv = document.getElementById("fileList");
+const soruListDiv = document.getElementById("soruList");
+const cevapListDiv = document.getElementById("cevapList");
+const statusDiv = document.getElementById("status");
+
 const questionView = document.getElementById("questionView");
 const answerView = document.getElementById("answerView");
 const questionTitle = document.getElementById("questionTitle");
 const answerTitle = document.getElementById("answerTitle");
-const statusDiv = document.getElementById("status");
 
-/* JSON YÜKLEME */
+/* JSON YÜKLE */
 saFileInput.onchange = () => {
-  const file = saFileInput.files[0];
+  const f = saFileInput.files[0];
   const r = new FileReader();
   r.onload = e => {
     saCredentials = JSON.parse(e.target.result);
     statusDiv.textContent = "JSON yüklendi.";
   };
-  r.readAsText(file);
+  r.readAsText(f);
 };
 
-/* SORULARI YÜKLE + CACHE'E AT */
+/* TÜM PNG LİSTELERİNİ ÇEK */
 loadBtn.onclick = async () => {
-  if (!saCredentials) {
-    alert("Önce JSON yükle.");
-    return;
-  }
+  if (!saCredentials) { alert("Önce JSON yükle."); return; }
 
   statusDiv.textContent = "Sorular yükleniyor...";
   cacheSorular = await listPNGs(FOLDER_SORULAR);
@@ -189,49 +213,47 @@ loadBtn.onclick = async () => {
   statusDiv.textContent = "Cevaplar yükleniyor...";
   cacheCevaplar = await listPNGs(FOLDER_CEVAPLAR);
 
-  statusDiv.textContent = "Yüklendi.";
-  drawList();
+  statusDiv.textContent = "Listeler yüklendi.";
+  drawLists();
 };
 
+/* LİSTELERİ YAZDIR */
+function drawLists() {
+  soruListDiv.innerHTML = "";
+  cevapListDiv.innerHTML = "";
 
-/* SOL LİSTEYİ ÇİZ */
-function drawList() {
-  fileListDiv.innerHTML = "";
-  cacheSorular.forEach(f => {
+  cacheSorular.forEach(item => {
     const d = document.createElement("div");
     d.className = "file-item";
-    d.textContent = f.name;
-    d.onclick = () => showPair(f.name);
-    fileListDiv.appendChild(d);
+    d.textContent = item.name;
+    d.onclick = () => showQuestion(item);
+    soruListDiv.appendChild(d);
+  });
+
+  cacheCevaplar.forEach(item => {
+    const d = document.createElement("div");
+    d.className = "file-item";
+    d.textContent = item.name;
+    d.onclick = () => showAnswer(item);
+    cevapListDiv.appendChild(d);
   });
 }
 
-/* SORU VE CEVABI BİRLİKTE GÖSTER */
-async function showPair(fileName) {
-  questionTitle.textContent = "Soru: " + fileName;
-  answerTitle.textContent = "Cevap: " + fileName;
-
+/* PNG GETİRME */
+async function showQuestion(file) {
+  questionTitle.textContent = "Soru: " + file.name;
   questionView.innerHTML = "<p>Yükleniyor...</p>";
+  const img = await fetchPNG(file.id);
+  questionView.innerHTML = "";
+  questionView.appendChild(img);
+}
+
+async function showAnswer(file) {
+  answerTitle.textContent = "Cevap: " + file.name;
   answerView.innerHTML = "<p>Yükleniyor...</p>";
-
-  const soru = cacheSorular.find(x => x.name === fileName);
-  const cevap = cacheCevaplar.find(x => x.name === fileName);
-
-  if (soru) {
-    const img = await fetchPNG(soru.id);
-    questionView.innerHTML = "";
-    questionView.appendChild(img);
-  } else {
-    questionView.innerHTML = "<p>Soru bulunamadı.</p>";
-  }
-
-  if (cevap) {
-    const img = await fetchPNG(cevap.id);
-    answerView.innerHTML = "";
-    answerView.appendChild(img);
-  } else {
-    answerView.innerHTML = "<p>Cevap bulunamadı.</p>";
-  }
+  const img = await fetchPNG(file.id);
+  answerView.innerHTML = "";
+  answerView.appendChild(img);
 }
 
 /* PNG İNDİR */
@@ -247,20 +269,19 @@ async function fetchPNG(id) {
   return img;
 }
 
-/* PNG LİSTESİ */
+/* PNG LİSTELEME */
 async function listPNGs(folderId) {
   const token = await getToken();
   const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and mimeType='image/png'&fields=files(id,name)&pageSize=500`;
 
-  const res = await fetch(url, { headers: { Authorization: "Bearer " + token }});
+  const res = await fetch(url, { headers:{ Authorization:"Bearer "+token } });
   return (await res.json()).files || [];
 }
 
-/* TOKEN ÜRETİMİ */
+/* TOKEN */
 async function getToken() {
   const now = Math.floor(Date.now()/1000);
-  if (cachedToken && cachedTokenExp - 60 > now)
-    return cachedToken;
+  if (cachedToken && cachedTokenExp - 60 > now) return cachedToken;
 
   const t = await createToken(saCredentials);
   cachedToken = t.access_token;
@@ -271,12 +292,12 @@ async function getToken() {
 async function createToken(sa) {
   const now = Math.floor(Date.now()/1000);
 
-  const header = { alg: "RS256", typ:"JWT" };
+  const header = { alg:"RS256", typ:"JWT" };
   const payload = {
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
+    scope:"https://www.googleapis.com/auth/drive.readonly",
+    aud:"https://oauth2.googleapis.com/token",
+    exp: now+3600,
     iat: now
   };
 
@@ -300,7 +321,7 @@ async function createToken(sa) {
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method:"POST",
-    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    headers:{ "Content-Type":"application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion: jwt
@@ -310,18 +331,16 @@ async function createToken(sa) {
   return await res.json();
 }
 
-/* HELPERLER */
+/* HELPER */
 function b64(str){
   return btoa(unescape(encodeURIComponent(str)))
     .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
 }
-
 function b64Bytes(ab){
   let s="", b=new Uint8Array(ab);
   for(let i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);
   return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
 }
-
 function pemToBuf(pem){
   const c=pem.replace(/-----BEGIN PRIVATE KEY-----/,"")
              .replace(/-----END PRIVATE KEY-----/,"")
