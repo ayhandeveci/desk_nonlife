@@ -1,121 +1,91 @@
-let sessionToken = null;
+//---------------------------------------------------------
+// 1) Kullanıcı tokenini tam girecek
+//---------------------------------------------------------
+let USER_TOKEN = "";
 
+//---------------------------------------------------------
+// 2) Repo bilgileri (private repo)
+//---------------------------------------------------------
 const OWNER = "ayhandeveci";
 const REPO = "desk_nonlife_private_questions";
-const QUESTIONS = "questions";
-const ANSWERS = "answers";
+const FOLDER = "questions";
 
+//---------------------------------------------------------
+// 3) Panel aç/kapa
+//---------------------------------------------------------
 let isMenuOpen = true;
 
-// SOL MENÜYÜ AÇ/KAPAT
 function toggleMenu() {
     const menu = document.getElementById("file-list");
 
     if (isMenuOpen) {
-        menu.style.width = "0px";
-        menu.style.padding = "0px";
+        menu.style.transform = "translateX(-260px)";
     } else {
-        menu.style.width = "260px";
-        menu.style.padding = "10px";
+        menu.style.transform = "translateX(0)";
     }
 
     isMenuOpen = !isMenuOpen;
 }
 
+//---------------------------------------------------------
+// 4) Login → Kullanıcıdan tam token al
+//---------------------------------------------------------
+function login() {
+    USER_TOKEN = prompt("Lütfen GitHub tokeninizi tamamen giriniz:");
 
-// GİRİŞ
-async function login() {
-    const token = document.getElementById("token").value.trim();
-
-    if (token.length < 20) {
-        alert("Tam token gir.");
+    if (!USER_TOKEN || USER_TOKEN.length < 10) {
+        alert("Geçersiz token!");
         return;
     }
-
-    sessionToken = token;
-
-    document.getElementById("login-box").style.display = "none";
-    document.getElementById("app").style.display = "flex";
 
     loadFiles();
 }
 
-
-// SORULARI LİSTELE
+//---------------------------------------------------------
+// 5) PNG LISTESINI ÇEK
+//---------------------------------------------------------
 async function loadFiles() {
     const res = await fetch(
-        `https://api.github.com/repos/${OWNER}/${REPO}/contents/${QUESTIONS}`,
-        { headers: { Authorization: `Bearer ${sessionToken}` } }
+        `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FOLDER}`,
+        {
+            headers: { Authorization: `token ${USER_TOKEN}` }
+        }
     );
 
-    const files = await res.json();
+    const data = await res.json();
 
-    if (!Array.isArray(files)) {
-        document.getElementById("files").innerHTML =
-            "<p>Erişim reddedildi. Token yanlış.</p>";
+    if (!Array.isArray(data)) {
+        alert("Yetkisiz erişim. Token yanlış.");
         return;
     }
 
-    const pngs = files.filter(f => f.name.endsWith(".png"));
-
-    pngs.sort((a, b) => a.name.localeCompare(b.name));
-
     let html = "";
-    pngs.forEach(f => {
-        html += `
-            <div onclick="showImage('${f.download_url}', '${f.name}')"
-                 style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;">
-                ${f.name}
-            </div>
-        `;
-    });
+
+    data
+        .filter(f => f.name.endsWith(".png"))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(f => {
+            html += `
+                <div 
+                    onclick="showImage('${f.download_url}')"
+                    style="cursor:pointer; padding:6px 0; border-bottom:1px solid #eee;">
+                    ${f.name}
+                </div>
+            `;
+        });
 
     document.getElementById("files").innerHTML = html;
 }
 
-
-// SORU + CEVAP GÖSTERME
-async function showImage(url, fileName) {
-    // SORUYU GÖSTER
-    const qImg = document.getElementById("questionImg");
-    qImg.src = url;
-    qImg.style.display = "block";
-
-    // CEVAP BULMAYA ÇALIŞ
-    const answerUrl = await findAnswer(fileName);
-
-    const aImg = document.getElementById("answerImg");
-    const noAnswer = document.getElementById("noAnswer");
-
-    if (answerUrl) {
-        aImg.src = answerUrl;
-        aImg.style.display = "block";
-        noAnswer.style.display = "none";
-    } else {
-        aImg.style.display = "none";
-        noAnswer.style.display = "block";
-    }
-
-    document.getElementById("viewer").scrollTop = 0;
+//---------------------------------------------------------
+// 6) SAĞ PANELDE SORU GÖSTER
+//---------------------------------------------------------
+function showImage(url) {
+    document.getElementById("question-area").innerHTML =
+        `<img src="${url}" style="width:100%; max-width:900px;">`;
 }
 
-
-// SORU DOSYASINA GÖRE CEVABI BUL
-async function findAnswer(questionFileName) {
-    const answerName = questionFileName.replace(".png", "_cevap.png");
-
-    try {
-        const res = await fetch(
-            `https://api.github.com/repos/${OWNER}/${REPO}/contents/${ANSWERS}/${answerName}`,
-            { headers: { Authorization: `Bearer ${sessionToken}` } }
-        );
-
-        const data = await res.json();
-
-        if (data.download_url) return data.download_url;
-
-        return null;
-    } catch {
-        return null;
-    }
-}
+//---------------------------------------------------------
+// 7) SAYFA AÇILDIĞINDA TOKEN SOR
+//---------------------------------------------------------
+window.onload = login;
