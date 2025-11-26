@@ -1,114 +1,340 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8" />
-<title>PNG Viewer</title>
-<style>
-    body { margin: 0; font-family: Arial; display: flex; height: 100vh; }
+  <meta charset="UTF-8" />
+  <title>Drive PNG Viewer (Service Account)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+    }
     #sidebar {
-        width: 280px; 
-        background: #f4f4f4; 
-        border-right: 1px solid #ddd;
-        padding: 10px; 
-        overflow-y: auto;
+      width: 320px;
+      background: #f4f4f4;
+      border-right: 1px solid #ddd;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     #content {
-        flex: 1; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center;
-        background: #fafafa;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #fafafa;
     }
     #content img {
-        max-width: 90%;
-        max-height: 90%;
-        border: 1px solid #ccc;
-        background: white;
+      max-width: 95%;
+      max-height: 95%;
+      border: 1px solid #ccc;
+      background: white;
+    }
+    .label {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 2px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    input[type="file"] {
+      width: 100%;
+    }
+    button {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #888;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #e7e7e7;
+    }
+    #fileList {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 8px;
+      border-top: 1px solid #ddd;
+      padding-top: 6px;
     }
     .file-item {
-        padding: 8px;
-        margin: 4px 0;
-        background: white;
-        cursor: pointer;
-        border-radius: 5px;
-        border: 1px solid #ddd;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      background: white;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      font-size: 13px;
+      word-break: break-all;
     }
-    .file-item:hover { background: #e7e7e7; }
-</style>
+    .file-item:hover {
+      background: #e7e7e7;
+    }
+    #status {
+      font-size: 11px;
+      color: #666;
+      min-height: 14px;
+    }
+  </style>
 </head>
-
 <body>
 
 <div id="sidebar">
-    <h3>Google Drive PNG Listesi</h3>
+  <div>
+    <div class="label">Service Account JSON (kendi hesabın):</div>
+    <input id="saFile" type="file" accept="application/json">
+  </div>
 
-    <label>Access Token:</label><br>
-    <input id="tokenInput" type="text" style="width:100%; margin-bottom:10px;" placeholder="Google Drive access token gir">
-    
-    <label>Klasör ID:</label><br>
-    <input id="folderInput" type="text" style="width:100%; margin-bottom:10px;" placeholder="Folder ID">
+  <div>
+    <div class="label">Drive Folder ID:</div>
+    <input id="folderInput" type="text" placeholder="1AbCdeFg...">
+  </div>
 
-    <button onclick="loadPNGs()">Listele</button>
+  <div style="display:flex; gap:6px;">
+    <button id="listBtn">PNG’leri Listele</button>
+    <button id="clearBtn">Temizle</button>
+  </div>
 
-    <hr>
-    <div id="fileList"></div>
+  <div id="status"></div>
+
+  <div id="fileList"></div>
 </div>
 
 <div id="content">
-    <p>Bir PNG seçiniz...</p>
+  <p>Sol taraftan Service Account JSON yükle, klasör ID gir, sonra “PNG’leri Listele”ye bas.</p>
 </div>
 
 <script>
-async function loadPNGs() {
-    const token = document.getElementById("tokenInput").value.trim();
-    const folderId = document.getElementById("folderInput").value.trim();
+  // Global sadece RAM'de tutulacak
+  let saCredentials = null;
+  let cachedToken = null;
+  let cachedTokenExp = 0; // epoch saniye
 
-    if (!token || !folderId) {
-        alert("Token ve Folder ID gerekli!");
-        return;
+  const saFileInput = document.getElementById("saFile");
+  const folderInput = document.getElementById("folderInput");
+  const fileListDiv = document.getElementById("fileList");
+  const contentDiv = document.getElementById("content");
+  const statusDiv = document.getElementById("status");
+  const listBtn = document.getElementById("listBtn");
+  const clearBtn = document.getElementById("clearBtn");
+
+  saFileInput.addEventListener("change", () => {
+    const file = saFileInput.files[0];
+    if (!file) {
+      saCredentials = null;
+      statusDiv.textContent = "JSON seçilmedi.";
+      return;
     }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        saCredentials = JSON.parse(e.target.result);
+        cachedToken = null;
+        cachedTokenExp = 0;
+        statusDiv.textContent = "Service account JSON yüklendi.";
+      } catch (err) {
+        saCredentials = null;
+        statusDiv.textContent = "JSON parse hatası: " + err;
+      }
+    };
+    reader.readAsText(file);
+  });
 
-    const url =
-      `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType='image/png'&fields=files(id,name)&key=`; 
-    
-    const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-
-    const data = await res.json();
-    const fileList = document.getElementById("fileList");
-    fileList.innerHTML = "";
-
-    if (!data.files || data.files.length === 0) {
-        fileList.innerHTML = "PNG bulunamadı.";
-        return;
+  listBtn.addEventListener("click", async () => {
+    const folderId = folderInput.value.trim();
+    if (!saCredentials) {
+      alert("Önce service account JSON dosyasını yükle.");
+      return;
     }
-
-    data.files.forEach(file => {
+    if (!folderId) {
+      alert("Folder ID gir.");
+      return;
+    }
+    fileListDiv.innerHTML = "";
+    statusDiv.textContent = "PNG listesi çekiliyor...";
+    try {
+      const files = await listPNGs(folderId);
+      if (!files || files.length === 0) {
+        fileListDiv.textContent = "Bu klasörde PNG bulunamadı.";
+        statusDiv.textContent = "PNG bulunamadı.";
+        return;
+      }
+      statusDiv.textContent = "Toplam " + files.length + " PNG bulundu.";
+      files.forEach(file => {
         const div = document.createElement("div");
         div.className = "file-item";
         div.textContent = file.name;
-        div.onclick = () => showPNG(file.id, token);
-        fileList.appendChild(div);
-    });
-}
-
-function showPNG(fileId, token) {
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-
-    const content = document.getElementById("content");
-    content.innerHTML = `<img src="${url}" style="max-width:90%; max-height:90%;" 
-                         onerror="this.src=''; alert('Görüntü yüklenemedi');"
-                         />`;
-
-    // Token'ı header'a eklemek için fetch kullanıyoruz (çünkü img tag header gönderemez)
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.blob())
-      .then(blob => {
-          const imgURL = URL.createObjectURL(blob);
-          content.innerHTML = `<img src="${imgURL}">`;
+        div.onclick = () => showPNG(file.id);
+        fileListDiv.appendChild(div);
       });
-}
+    } catch (e) {
+      console.error(e);
+      statusDiv.textContent = "Listeleme hatası: " + e;
+      fileListDiv.textContent = "Hata oluştu.";
+    }
+  });
+
+  clearBtn.addEventListener("click", () => {
+    saCredentials = null;
+    cachedToken = null;
+    cachedTokenExp = 0;
+    saFileInput.value = "";
+    folderInput.value = "";
+    fileListDiv.innerHTML = "";
+    contentDiv.innerHTML = "<p>Sol taraftan Service Account JSON yükle, klasör ID gir, sonra “PNG’leri Listele”ye bas.</p>";
+    statusDiv.textContent = "Oturum temizlendi. JSON tekrar yüklenmeli.";
+  });
+
+  async function listPNGs(folderId) {
+    const token = await getAccessToken();
+    const url = "https://www.googleapis.com/drive/v3/files"
+      + "?q='" + encodeURIComponent(folderId) + "' in parents and mimeType='image/png'"
+      + "&fields=files(id,name)";
+    const res = await fetch(url, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error("Drive list hatası: " + res.status + " - " + txt);
+    }
+    const data = await res.json();
+    return data.files || [];
+  }
+
+  async function showPNG(fileId) {
+    statusDiv.textContent = "PNG indiriliyor...";
+    contentDiv.innerHTML = "<p>Yükleniyor...</p>";
+    try {
+      const token = await getAccessToken();
+      const url = "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(fileId) + "?alt=media";
+      const res = await fetch(url, {
+        headers: { Authorization: "Bearer " + token }
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error("PNG fetch hatası: " + res.status + " - " + txt);
+      }
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      contentDiv.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = objUrl;
+      contentDiv.appendChild(img);
+      statusDiv.textContent = "PNG gösteriliyor.";
+    } catch (e) {
+      console.error(e);
+      contentDiv.innerHTML = "<p>Görsel yüklenemedi.</p>";
+      statusDiv.textContent = "PNG gösterim hatası: " + e;
+    }
+  }
+
+  async function getAccessToken() {
+    if (!saCredentials) {
+      throw new Error("Service account JSON yok.");
+    }
+    const now = Math.floor(Date.now() / 1000);
+    if (cachedToken && cachedTokenExp - 60 > now) {
+      return cachedToken;
+    }
+    statusDiv.textContent = "Token üretiliyor...";
+    const tokenData = await generateAccessToken(saCredentials);
+    cachedToken = tokenData.access_token;
+    cachedTokenExp = now + (tokenData.expires_in || 3600);
+    return cachedToken;
+  }
+
+  async function generateAccessToken(sa) {
+    const header = {
+      alg: "RS256",
+      typ: "JWT"
+    };
+
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      iss: sa.client_email,
+      scope: "https://www.googleapis.com/auth/drive.readonly",
+      aud: "https://oauth2.googleapis.com/token",
+      exp: now + 3600,
+      iat: now
+    };
+
+    const encodedHeader = base64urlEncode(JSON.stringify(header));
+    const encodedPayload = base64urlEncode(JSON.stringify(payload));
+    const unsignedToken = encodedHeader + "." + encodedPayload;
+
+    const keyData = pemToArrayBuffer(sa.private_key);
+    const key = await crypto.subtle.importKey(
+      "pkcs8",
+      keyData,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+
+    const signature = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      new TextEncoder().encode(unsignedToken)
+    );
+
+    const encodedSignature = base64urlEncodeBytes(signature);
+    const jwt = unsignedToken + "." + encodedSignature;
+
+    const body = new URLSearchParams();
+    body.append("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer");
+    body.append("assertion", jwt);
+
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error("Token endpoint hatası: " + res.status + " - " + txt);
+    }
+
+    return await res.json();
+  }
+
+  function base64urlEncode(str) {
+    // UTF-8 string -> base64url
+    const b64 = btoa(unescape(encodeURIComponent(str)));
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function base64urlEncodeBytes(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const b64 = btoa(binary);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function pemToArrayBuffer(pem) {
+    const cleaned = pem
+      .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+      .replace(/-----END PRIVATE KEY-----/g, "")
+      .replace(/\r?\n|\r/g, "")
+      .trim();
+    const binary = atob(cleaned);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
 </script>
 
 </body>
