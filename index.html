@@ -645,10 +645,10 @@ function updateGPTButtonsState() {
 
   const canProcess = !!openAIApiKey && !!rawAnswerText;
   runProcessBtn.disabled = !canProcess;
-}
 
   const canExport = !!rawAnswerText;
   exportPngBtn.disabled = !canExport;
+}
 
 
 /* === Blob → Base64 === */
