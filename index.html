@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Exam Viewer - Soru Cevap + GPT</title>
 
+
 <!-- MARKDOWN -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -19,6 +20,8 @@ window.MathJax = {
 </script>
 <script id="MathJax-script" async
   src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
 
 <style>
   * { box-sizing: border-box; }
@@ -332,6 +335,7 @@ window.MathJax = {
         <input type="file" id="gptFile" accept="application/json">
         <button id="runRawBtn" disabled>Ham Cevap Üret</button>
         <button id="runProcessBtn" disabled>Düzenlenmiş Cevap Üret</button>
+        <button id="exportPngBtn" disabled>PNG Olarak İndir</button>
         <span id="gptStatus"></span>
       </div>
     </div>
@@ -385,6 +389,7 @@ const gptFileInput  = document.getElementById("gptFile");
 const runRawBtn     = document.getElementById("runRawBtn");
 const runProcessBtn = document.getElementById("runProcessBtn");
 const gptStatus     = document.getElementById("gptStatus");
+const exportPngBtn  = document.getElementById("exportPngBtn");
 const gptRawDiv     = document.getElementById("gptRaw");
 const gptProcessedDiv = document.getElementById("gptProcessed");
 
@@ -642,6 +647,10 @@ function updateGPTButtonsState() {
   runProcessBtn.disabled = !canProcess;
 }
 
+  const canExport = !!rawAnswerText;
+  exportPngBtn.disabled = !canExport;
+
+
 /* === Blob → Base64 === */
 function blobToBase64(blob) {
   return new Promise((resolve) => {
@@ -847,6 +856,29 @@ async function listPNGs(folderId) {
   const j = await res.json();
   return j.files || [];
 }
+/* === GPT Cevabını PNG Olarak Dışa Aktar === */
+exportPngBtn.onclick = async () => {
+  const isRawTabActive =
+    document.querySelector(".gptTabBtn.active").textContent === "Ham Cevap";
+
+  const targetDiv = document.getElementById(
+    isRawTabActive ? "gptRaw" : "gptProcessed"
+  );
+
+  html2canvas(targetDiv, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff"
+  }).then(canvas => {
+    const link = document.createElement("a");
+    link.download = isRawTabActive
+      ? "gpt_ham_cevap.png"
+      : "gpt_duzenlenmis_cevap.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
+};
+
 </script>
 </body>
 </html>
