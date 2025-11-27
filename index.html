@@ -756,7 +756,7 @@ P(X = k) = \\lambda^k e^{-\\lambda} / k!
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5.1",
       messages: [
         {
           role: "user",
@@ -803,6 +803,9 @@ Görevlerin:
 7) Çıktının tamamını kesinlikle Markdown formatında üret.
 8) Formüllerin hepsini LaTeX **display mode** (blok) olarak ver, inline kullanma.
 9) Metnin anlamını, kurgusunu, sonuçlarını değiştirme — sadece yeniden düzenle.
+10) Formülleri mutlaka $$ ... $$ arasında KESİNLİKLE blok olarak yaz.
+11) Her formülü TEK SATIR LaTeX blok formatında üret, satır içinde başka metin olmasın.
+
 
 --- METİN BAŞLIYOR ---
 ${firstAnswerText}
@@ -816,7 +819,7 @@ ${firstAnswerText}
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5.1",
       messages: [
         { role: "system", content: secondPrompt },
         { role: "user", content: firstAnswerText }
