@@ -2,21 +2,20 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Exam Viewer - Soru Cevap</title>
+<title>Exam Viewer - Soru Cevap + GPT</title>
 
 <style>
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: Arial;
+    font-family: Arial, sans-serif;
     height: 100vh;
-    display: flex;
     overflow: hidden;
   }
 
   /* ÜST BAR */
   #topBar {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     height: 45px;
@@ -27,7 +26,7 @@
     padding: 5px 10px;
     background: #ddd;
     border-bottom: 1px solid #aaa;
-    z-index: 3;
+    z-index: 10;
   }
 
   button, input[type="file"] {
@@ -38,39 +37,79 @@
     font-size: 13px;
   }
   button:hover { background: #e7e7e7; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
 
   #status { font-size: 12px; margin-left: 10px; }
 
-  #leftSide, #rightSide {
-    margin-top: 45px;
-    height: calc(100vh - 45px);
+  /* 4'LÜ GRID LAYOUT */
+  #grid {
+    position: absolute;
+    top: 45px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: 35% 65%;
+    grid-template-rows: 50% 50%;
+    grid-template-areas:
+      "leftTop rightTop"
+      "leftBottom rightBottom";
   }
 
-  /* SOL TARAF → 2 LİSTE YAN YANA */
-  #leftSide {
-    width: 460px;
-    display: flex;
-    flex-direction: row;
+  #leftTop {
+    grid-area: leftTop;
     border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
     background: #f3f3f3;
-  }
-
-  .list-column {
-    flex: none;
-    width: 230px;
-    min-width: 230px;
-    max-width: 230px;
-    border-right: 1px solid #ccc;
+    padding: 8px;
     display: flex;
     flex-direction: column;
   }
 
+  #rightTop {
+    grid-area: rightTop;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #leftBottom {
+    grid-area: leftBottom;
+    border-right: 1px solid #ccc;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    background: #f9f9f9;
+  }
+
+  #rightBottom {
+    grid-area: rightBottom;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Sol üst: iki liste yan yana */
+  .lists-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+  }
+
+  .list-column {
+    flex: 1;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+  }
+  .list-column:last-child { border-right: none; }
+
   .list-title {
     font-weight: bold;
-    padding: 8px;
+    padding: 6px;
     background: #e9e9e9;
     border-bottom: 1px solid #ccc;
     text-align: center;
+    font-size: 14px;
   }
 
   .file-list {
@@ -90,16 +129,9 @@
   }
   .file-item:hover { background: #e5e5e5; }
 
-  /* SAĞ PANEL */
-  #rightSide {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
+  /* Soru / Cevap panelleri */
   .panel {
     flex: 1;
-    border-bottom: 1px solid #ccc;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -129,7 +161,7 @@
     transition: transform 0.15s ease;
   }
 
-  /* Zoom Butonları */
+  /* Zoom butonları */
   .zoom-controls {
     position: absolute;
     top: 6px;
@@ -151,13 +183,62 @@
     text-align: center;
     padding: 0;
   }
+  .zoom-btn:hover { background: #f0f0f0; }
 
-  .zoom-btn:hover {
-    background: #f0f0f0;
+  /* GPT PANELİ (SOL ALT) */
+  #gptHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  #gptHeader span.title {
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  #gptStatus {
+    font-size: 12px;
+    margin-left: 6px;
+  }
+
+  #gptOutput {
+    flex: 1;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    padding: 8px 10px;
+    overflow-y: auto;
+    font-size: 14px;
+  }
+
+  #gptOutput h1, #gptOutput h2, #gptOutput h3 {
+    margin-top: 10px;
+  }
+
+  #gptOutput pre {
+    background: #f5f5f5;
+    padding: 6px;
+    border-radius: 4px;
+    overflow-x: auto;
   }
 </style>
-</head>
 
+<!-- Markdown-it -->
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
+
+<!-- MathJax (LaTeX için) -->
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+</head>
 <body>
 
 <!-- ÜST BAR -->
@@ -167,86 +248,137 @@
   <span id="status"></span>
 </div>
 
-<!-- SOL TARAF (2 LİSTE YAN YANA) -->
-<div id="leftSide">
+<!-- 4'LÜ GRID -->
+<div id="grid">
 
-  <div class="list-column">
-    <div class="list-title">SORULAR</div>
-    <div id="soruList" class="file-list"></div>
-  </div>
-
-  <div class="list-column" style="border-right:none;">
-    <div class="list-title">CEVAPLAR</div>
-    <div id="cevapList" class="file-list"></div>
-  </div>
-
-</div>
-
-<!-- SAĞ TARAF -->
-<div id="rightSide">
-
-  <div class="panel">
-    <div class="panel-title" id="questionTitle">Soru</div>
-
-    <div class="img-area" id="questionView">
-      <div class="zoom-controls">
-        <button class="zoom-btn" onclick="zoomIn('question')">+</button>
-        <button class="zoom-btn" onclick="zoomOut('question')">-</button>
+  <!-- SOL ÜST: SORU/CEVAP LİSTELERİ -->
+  <div id="leftTop">
+    <div class="lists-wrapper">
+      <div class="list-column">
+        <div class="list-title">SORULAR</div>
+        <div id="soruList" class="file-list"></div>
       </div>
-      <p>Seçilmedi</p>
+      <div class="list-column">
+        <div class="list-title">CEVAPLAR</div>
+        <div id="cevapList" class="file-list"></div>
+      </div>
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-title" id="answerTitle">Cevap</div>
-
-    <div class="img-area" id="answerView">
-      <div class="zoom-controls">
-        <button class="zoom-btn" onclick="zoomIn('answer')">+</button>
-        <button class="zoom-btn" onclick="zoomOut('answer')">-</button>
+  <!-- SAĞ ÜST: SORU PNG PANELİ -->
+  <div id="rightTop">
+    <div class="panel">
+      <div class="panel-title" id="questionTitle">Soru</div>
+      <div class="img-area" id="questionView">
+        <div class="zoom-controls">
+          <button class="zoom-btn" onclick="zoomIn('question')">+</button>
+          <button class="zoom-btn" onclick="zoomOut('question')">-</button>
+        </div>
+        <p>Seçilmedi</p>
       </div>
-      <p>Seçilmedi</p>
+    </div>
+  </div>
+
+  <!-- SOL ALT: GPT PANELİ -->
+  <div id="leftBottom">
+    <div id="gptHeader">
+      <span class="title">GPT Çözüm Paneli</span>
+      <input type="file" id="gptFile" accept="application/json">
+      <button id="gptBtn" disabled>GPT Çözüm Üret</button>
+      <span id="gptStatus"></span>
+    </div>
+    <div id="gptOutput">
+      GPT cevabı burada görünecek.
+    </div>
+  </div>
+
+  <!-- SAĞ ALT: CEVAP PNG PANELİ -->
+  <div id="rightBottom">
+    <div class="panel">
+      <div class="panel-title" id="answerTitle">Cevap</div>
+      <div class="img-area" id="answerView">
+        <div class="zoom-controls">
+          <button class="zoom-btn" onclick="zoomIn('answer')">+</button>
+          <button class="zoom-btn" onclick="zoomOut('answer')">-</button>
+        </div>
+        <p>Seçilmedi</p>
+      </div>
     </div>
   </div>
 
 </div>
 
 <script>
-
-/* KLASÖR ID'LER */
+/* ------------- SABİT FOLDER ID'LER ------------- */
 const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
 const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
-/* CACHE */
+/* ------------- DEĞİŞKENLER ------------- */
 let saCredentials = null;
 let cacheSorular = [];
 let cacheCevaplar = [];
 let cachedToken = null;
 let cachedTokenExp = 0;
 
-/* ELEMENTLER */
-const saFileInput = document.getElementById("saFile");
-const loadBtn = document.getElementById("loadBtn");
-const soruListDiv = document.getElementById("soruList");
-const cevapListDiv = document.getElementById("cevapList");
-const statusDiv = document.getElementById("status");
-const questionView = document.getElementById("questionView");
-const answerView = document.getElementById("answerView");
-const questionTitle = document.getElementById("questionTitle");
-const answerTitle = document.getElementById("answerTitle");
+let currentQuestionFile = null;
+let currentAnswerFile = null;
 
-/* JSON YÜKLEME */
+let zoomLevels = { question: 1, answer: 1 };
+
+let openAIApiKey = null;
+const md = window.markdownit({ html: false, linkify: true, breaks: true });
+
+/* ------------- ELEMENTLER ------------- */
+const saFileInput   = document.getElementById("saFile");
+const loadBtn       = document.getElementById("loadBtn");
+const soruListDiv   = document.getElementById("soruList");
+const cevapListDiv  = document.getElementById("cevapList");
+const statusDiv     = document.getElementById("status");
+const questionView  = document.getElementById("questionView");
+const answerView    = document.getElementById("answerView");
+const questionTitle = document.getElementById("questionTitle");
+const answerTitle   = document.getElementById("answerTitle");
+
+const gptFileInput  = document.getElementById("gptFile");
+const gptBtn        = document.getElementById("gptBtn");
+const gptStatus     = document.getElementById("gptStatus");
+const gptOutput     = document.getElementById("gptOutput");
+
+/* ------------- SERVICE ACCOUNT JSON YÜKLEME ------------- */
 saFileInput.onchange = () => {
   const f = saFileInput.files[0];
+  if (!f) return;
   const r = new FileReader();
   r.onload = e => {
     saCredentials = JSON.parse(e.target.result);
-    statusDiv.textContent = "JSON yüklendi.";
+    statusDiv.textContent = "Drive JSON yüklendi.";
   };
   r.readAsText(f);
 };
 
-/* NUMERİK SIRALAMA */
+/* ------------- OPENAI JSON YÜKLEME ------------- */
+gptFileInput.onchange = () => {
+  const f = gptFileInput.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      openAIApiKey = data.api_key || data.OPENAI_API_KEY || data.key;
+      if (openAIApiKey) {
+        gptStatus.textContent = "GPT anahtarı yüklendi.";
+        updateGptButtonState();
+      } else {
+        gptStatus.textContent = "JSON içinde api_key bulunamadı.";
+      }
+    } catch (err) {
+      gptStatus.textContent = "Geçersiz JSON.";
+    }
+  };
+  r.readAsText(f);
+};
+
+/* ------------- PNG SIRALAMA ------------- */
 function sortPngList(list) {
   return list.sort((a, b) => {
     const numA = parseInt(a.name.split('.')[0], 10);
@@ -255,9 +387,9 @@ function sortPngList(list) {
   });
 }
 
-/* PNG LİSTELERİ YÜKLE */
+/* ------------- TÜM PNG LİSTESİNİ YÜKLE ------------- */
 loadBtn.onclick = async () => {
-  if (!saCredentials) { alert("Önce JSON yükle."); return; }
+  if (!saCredentials) { alert("Önce Drive JSON yükle."); return; }
 
   statusDiv.textContent = "Sorular yükleniyor...";
   cacheSorular = sortPngList(await listPNGs(FOLDER_SORULAR));
@@ -269,7 +401,6 @@ loadBtn.onclick = async () => {
   drawLists();
 };
 
-/* SOLDA LİSTELERİ ÇİZ */
 function drawLists() {
   soruListDiv.innerHTML = "";
   cevapListDiv.innerHTML = "";
@@ -291,38 +422,37 @@ function drawLists() {
   });
 }
 
-/* SAĞ PANEL SORU */
+/* ------------- SORU GÖSTER ------------- */
 async function showQuestion(file) {
+  currentQuestionFile = file;
+  updateGptButtonState();
+
   questionTitle.textContent = "Soru: " + file.name;
   resetZoom("question");
-  questionView.innerHTML = loadingDiv();
+  questionView.innerHTML = "<p>Yükleniyor...</p>";
 
   const img = await fetchPNG(file.id);
   questionView.innerHTML = "";
-  questionView.appendChild(zoomControls("question"));
+  questionView.appendChild(createZoomControls("question"));
   questionView.appendChild(img);
 }
 
-/* SAĞ PANEL CEVAP */
+/* ------------- CEVAP GÖSTER ------------- */
 async function showAnswer(file) {
+  currentAnswerFile = file;
+  updateGptButtonState();
+
   answerTitle.textContent = "Cevap: " + file.name;
   resetZoom("answer");
-  answerView.innerHTML = loadingDiv();
+  answerView.innerHTML = "<p>Yükleniyor...</p>";
 
   const img = await fetchPNG(file.id);
   answerView.innerHTML = "";
-  answerView.appendChild(zoomControls("answer"));
+  answerView.appendChild(createZoomControls("answer"));
   answerView.appendChild(img);
 }
 
-/* YÜKLENİYOR GÖRSELİ */
-function loadingDiv() {
-  const p = document.createElement("p");
-  p.textContent = "Yükleniyor...";
-  return p;
-}
-
-/* GÖRSEL İNDİRME */
+/* ------------- PNG İNDİR (IMG ELEMENTİ) ------------- */
 async function fetchPNG(id) {
   const token = await getToken();
   const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
@@ -335,11 +465,33 @@ async function fetchPNG(id) {
   const img = document.createElement("img");
   img.src = URL.createObjectURL(blob);
   img.style.transform = "scale(1)";
-  img.dataset.scale = "1";
   return img;
 }
 
-/* DRIVE PNG LİSTESİ */
+/* ------------- PNG İNDİR (BASE64) ------------- */
+async function fetchPNGBase64(id) {
+  const token = await getToken();
+  const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: "Bearer " + token }
+  });
+  const blob = await res.blob();
+  return blobToBase64(blob);
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result.split(",")[1];
+      resolve(base64);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* ------------- DRIVE PNG LİSTELEME ------------- */
 async function listPNGs(folderId) {
   const token = await getToken();
   const url =
@@ -352,7 +504,7 @@ async function listPNGs(folderId) {
   return (await res.json()).files || [];
 }
 
-/* TOKEN YÖNETİMİ */
+/* ------------- TOKEN YÖNETİMİ ------------- */
 async function getToken() {
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedTokenExp - 60 > now) return cachedToken;
@@ -406,7 +558,7 @@ async function createToken(sa) {
   return await res.json();
 }
 
-/* HELPER FONKSİYONLAR */
+/* ------------- HELPER FONKSİYONLAR ------------- */
 function b64(str) {
   return btoa(unescape(encodeURIComponent(str)))
     .replace(/\+/g, "-")
@@ -435,20 +587,14 @@ function pemToBuf(pem) {
   return buf.buffer;
 }
 
-/* --------------------------
-   ZOOM FONKSİYONLARI
---------------------------- */
-let zoomLevels = { question: 1, answer: 1 };
-
-function zoomControls(target) {
+/* ------------- ZOOM FONKSİYONLARI ------------- */
+function createZoomControls(target) {
   const div = document.createElement("div");
   div.className = "zoom-controls";
-
   div.innerHTML = `
     <button class="zoom-btn" onclick="zoomIn('${target}')">+</button>
     <button class="zoom-btn" onclick="zoomOut('${target}')">-</button>
   `;
-
   return div;
 }
 
@@ -464,6 +610,7 @@ function zoomOut(target) {
 
 function resetZoom(target) {
   zoomLevels[target] = 1;
+  applyZoom(target);
 }
 
 function applyZoom(target) {
@@ -472,11 +619,105 @@ function applyZoom(target) {
   );
   const img = viewer.querySelector("img");
   if (!img) return;
-
   img.style.transform = `scale(${zoomLevels[target]})`;
   img.style.transformOrigin = "center center";
 }
 
+/* ------------- GPT BUTON STATE ------------- */
+function updateGptButtonState() {
+  const ok = !!(openAIApiKey && currentQuestionFile && currentAnswerFile);
+  gptBtn.disabled = !ok;
+}
+
+/* ------------- GPT ÇALIŞTIR ------------- */
+gptBtn.onclick = async () => {
+  if (!openAIApiKey || !currentQuestionFile || !currentAnswerFile) return;
+
+  gptStatus.textContent = "Görseller hazırlanıyor...";
+  gptOutput.textContent = "GPT isteği hazırlanıyor...";
+
+  try {
+    const [qB64, aB64] = await Promise.all([
+      fetchPNGBase64(currentQuestionFile.id),
+      fetchPNGBase64(currentAnswerFile.id)
+    ]);
+
+    gptStatus.textContent = "GPT'ye gönderiliyor...";
+
+    const promptText = `
+Aşağıda iki görsel veriyorum:
+1) Soru PNG (sınav sorusu metni)
+2) Cevap PNG (kullanıcının çözümü / notları)
+
+Görevlerin:
+
+1) Önce soruyu Türkçe olarak kısa, net ve anlaşılır şekilde 3–5 cümlede özetle.
+2) Ardından sorunun tam çözümünü adım adım matematiksel olarak doğru biçimde yaz.
+3) Her adımın altına mutlaka kısa Türkçe açıklama ekle.
+4) Hesaplamalarda LaTeX benzeri matematiksel gösterim kullan. Örneğin:
+
+$$
+P(X = k) = (1-p)^{k-1} p
+$$
+
+5) Çözümün sonunda "Sonuç:" başlığı ile nihai cevabı açıkla.
+6) Çıktının tamamını sadece Markdown formatında ver. HTML verme.
+`;
+
+    const body = {
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: promptText },
+            {
+              type: "image_url",
+              image_url: { url: "data:image/png;base64," + qB64 }
+            },
+            {
+              type: "image_url",
+              image_url: { url: "data:image/png;base64," + aB64 }
+            }
+          ]
+        }
+      ]
+    };
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + openAIApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      gptStatus.textContent = "GPT hata verdi.";
+      gptOutput.textContent = errText;
+      return;
+    }
+
+    const data = await res.json();
+    const text = data.choices[0].message.content || "";
+
+    const html = md.render(text);
+    gptOutput.innerHTML = html;
+    gptStatus.textContent = "GPT cevabı hazır.";
+
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      MathJax.typesetPromise([gptOutput]);
+    }
+
+  } catch (err) {
+    console.error(err);
+    gptStatus.textContent = "GPT isteği sırasında hata.";
+    gptOutput.textContent = String(err);
+  }
+};
 </script>
+
 </body>
 </html>
