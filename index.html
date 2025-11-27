@@ -791,15 +791,22 @@ Aşağıda sana bir çözüm metni vereceğim. Bu metni ASLA anlam olarak deği�
 Görevlerin:
 1) Metindeki tüm matematiksel formülleri tespit et.
 2) Bu formülleri sırayla (A), (B), (C), ... şeklinde numaralandır.
-3) "## Formülasyon Bölümü" başlığı altında, her satırda bir formül olacak şekilde yaz:
+3) "## Formülasyon Bölümü" başlığı altında, her bir formülü ayrı satırda LaTeX blok formatında yaz:
 
 (A) ...formül...
 (B) ...formül...
 
-4) Sonra "## Metinsel Açıklama Bölümü" başlığı altında,
-   her formül için ayrı bir açıklama paragrafı yaz. Her açıklama ilgili formüle (A), (B), ... şeklinde referans versin.
-5) Formüllerin içeriğini ve metnin anlamını değiştirme.
-6) Çıktının tamamını Markdown formatında ver.
+4) Ardından "## Metinsel Açıklama Bölümü" başlığı altında her formül için ayrı bir açıklama paragrafı oluştur.
+   Her açıklama metni ilgili formüle referans versin (örn: "Formül (B)'den görüldüğü gibi...").
+5) Formüllerin içeriğini ASLA değiştirme. Yeni formül ekleme, formül silme yok.
+6) Tüm açıklamalar Türkçe ve öğretici olsun.
+7) Çıktının tamamını kesinlikle Markdown formatında üret.
+8) Formüllerin hepsini LaTeX **display mode** (blok) olarak ver, inline kullanma.
+9) Metnin anlamını, kurgusunu, sonuçlarını değiştirme — sadece yeniden düzenle.
+
+--- METİN BAŞLIYOR ---
+${firstAnswerText}
+--- METİN BİTİYOR ---
 `;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
