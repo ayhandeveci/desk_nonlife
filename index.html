@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -103,6 +102,7 @@
     border-bottom: 1px solid #ccc;
     display: flex;
     flex-direction: column;
+    position: relative;
   }
 
   .panel-title {
@@ -113,21 +113,48 @@
     font-size: 14px;
   }
 
-  /* SADECE BURAYI DEĞİŞTİRDİM: overflow: hidden → auto */
   .img-area {
     flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: auto;   /* hem yatay hem dikey scroll */
+    overflow: auto;
     background: white;
+    position: relative;
   }
 
   img {
     max-width: 95%;
     max-height: 95%;
+    transition: transform 0.15s ease;
   }
 
+  /* Zoom Butonları */
+  .zoom-controls {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    z-index: 2;
+    display: flex;
+    gap: 5px;
+  }
+
+  .zoom-btn {
+    width: 26px;
+    height: 26px;
+    background: #fff;
+    border: 1px solid #888;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 22px;
+    text-align: center;
+    padding: 0;
+  }
+
+  .zoom-btn:hover {
+    background: #f0f0f0;
+  }
 </style>
 </head>
 
@@ -160,19 +187,33 @@
 
   <div class="panel">
     <div class="panel-title" id="questionTitle">Soru</div>
-    <div id="questionView" class="img-area"><p>Seçilmedi</p></div>
+
+    <div class="img-area" id="questionView">
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn('question')">+</button>
+        <button class="zoom-btn" onclick="zoomOut('question')">-</button>
+      </div>
+      <p>Seçilmedi</p>
+    </div>
   </div>
 
   <div class="panel">
     <div class="panel-title" id="answerTitle">Cevap</div>
-    <div id="answerView" class="img-area"><p>Seçilmedi</p></div>
+
+    <div class="img-area" id="answerView">
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn('answer')">+</button>
+        <button class="zoom-btn" onclick="zoomOut('answer')">-</button>
+      </div>
+      <p>Seçilmedi</p>
+    </div>
   </div>
 
 </div>
 
 <script>
 
-/* FOLDER ID'LER */
+/* KLASÖR ID'LER */
 const FOLDER_SORULAR = "1SM8NcS58qf-L9wOZ-ywZzg9gKhERZoK3";
 const FOLDER_CEVAPLAR = "17IJCUY7xl52-YRyg7lP4FBJ-G3OohPx0";
 
@@ -189,7 +230,6 @@ const loadBtn = document.getElementById("loadBtn");
 const soruListDiv = document.getElementById("soruList");
 const cevapListDiv = document.getElementById("cevapList");
 const statusDiv = document.getElementById("status");
-
 const questionView = document.getElementById("questionView");
 const answerView = document.getElementById("answerView");
 const questionTitle = document.getElementById("questionTitle");
@@ -206,7 +246,7 @@ saFileInput.onchange = () => {
   r.readAsText(f);
 };
 
-/* NUMERİK SIRALAMA FONKSİYONU */
+/* NUMERİK SIRALAMA */
 function sortPngList(list) {
   return list.sort((a, b) => {
     const numA = parseInt(a.name.split('.')[0], 10);
@@ -215,7 +255,7 @@ function sortPngList(list) {
   });
 }
 
-/* TÜM LİSTELERİ YÜKLE */
+/* PNG LİSTELERİ YÜKLE */
 loadBtn.onclick = async () => {
   if (!saCredentials) { alert("Önce JSON yükle."); return; }
 
@@ -229,7 +269,7 @@ loadBtn.onclick = async () => {
   drawLists();
 };
 
-/* SOLDAKİ LİSTELERİ ÇİZ */
+/* SOLDA LİSTELERİ ÇİZ */
 function drawLists() {
   soruListDiv.innerHTML = "";
   cevapListDiv.innerHTML = "";
@@ -251,25 +291,38 @@ function drawLists() {
   });
 }
 
-/* SAĞ PANELDE SORU GÖSTER */
+/* SAĞ PANEL SORU */
 async function showQuestion(file) {
   questionTitle.textContent = "Soru: " + file.name;
-  questionView.innerHTML = "<p>Yükleniyor...</p>";
+  resetZoom("question");
+  questionView.innerHTML = loadingDiv();
+
   const img = await fetchPNG(file.id);
   questionView.innerHTML = "";
+  questionView.appendChild(zoomControls("question"));
   questionView.appendChild(img);
 }
 
-/* SAĞ PANELDE CEVAP GÖSTER */
+/* SAĞ PANEL CEVAP */
 async function showAnswer(file) {
   answerTitle.textContent = "Cevap: " + file.name;
-  answerView.innerHTML = "<p>Yükleniyor...</p>";
+  resetZoom("answer");
+  answerView.innerHTML = loadingDiv();
+
   const img = await fetchPNG(file.id);
   answerView.innerHTML = "";
+  answerView.appendChild(zoomControls("answer"));
   answerView.appendChild(img);
 }
 
-/* PNG RESMİ İNDİR */
+/* YÜKLENİYOR GÖRSELİ */
+function loadingDiv() {
+  const p = document.createElement("p");
+  p.textContent = "Yükleniyor...";
+  return p;
+}
+
+/* GÖRSEL İNDİRME */
 async function fetchPNG(id) {
   const token = await getToken();
   const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
@@ -281,10 +334,12 @@ async function fetchPNG(id) {
   const blob = await res.blob();
   const img = document.createElement("img");
   img.src = URL.createObjectURL(blob);
+  img.style.transform = "scale(1)";
+  img.dataset.scale = "1";
   return img;
 }
 
-/* DRIVE'DAN PNG DOSYA LİSTESİ */
+/* DRIVE PNG LİSTESİ */
 async function listPNGs(folderId) {
   const token = await getToken();
   const url =
@@ -378,6 +433,48 @@ function pemToBuf(pem) {
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
   return buf.buffer;
+}
+
+/* --------------------------
+   ZOOM FONKSİYONLARI
+--------------------------- */
+let zoomLevels = { question: 1, answer: 1 };
+
+function zoomControls(target) {
+  const div = document.createElement("div");
+  div.className = "zoom-controls";
+
+  div.innerHTML = `
+    <button class="zoom-btn" onclick="zoomIn('${target}')">+</button>
+    <button class="zoom-btn" onclick="zoomOut('${target}')">-</button>
+  `;
+
+  return div;
+}
+
+function zoomIn(target) {
+  zoomLevels[target] = Math.min(zoomLevels[target] + 0.2, 4);
+  applyZoom(target);
+}
+
+function zoomOut(target) {
+  zoomLevels[target] = Math.max(zoomLevels[target] - 0.2, 0.5);
+  applyZoom(target);
+}
+
+function resetZoom(target) {
+  zoomLevels[target] = 1;
+}
+
+function applyZoom(target) {
+  const viewer = document.getElementById(
+    target === "question" ? "questionView" : "answerView"
+  );
+  const img = viewer.querySelector("img");
+  if (!img) return;
+
+  img.style.transform = `scale(${zoomLevels[target]})`;
+  img.style.transformOrigin = "center center";
 }
 
 </script>
